@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Rust format
+        run: cargo fmt --all --check
+
+      - name: Rust lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Rust tests (also regenerates TS bindings)
+        run: pnpm bindings && cargo test --workspace
+
+      - name: TS bindings are up to date
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- ui/src/lib/api/generated)" ]; then
+            git status --short -- ui/src/lib/api/generated
+            echo "::error::Generated TS bindings are stale. Run 'pnpm bindings' and commit the result."
+            exit 1
+          fi
+
+      - name: Frontend lint
+        run: pnpm lint
+
+      - name: Frontend type check
+        run: pnpm check
+
+      - name: Frontend tests
+        run: pnpm test
+
+      - name: Build app
+        run: pnpm tauri build --debug --no-bundle

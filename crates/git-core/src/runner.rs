@@ -1,0 +1,174 @@
+//! Spawning git processes.
+
+use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use crate::GitError;
+
+/// Options passed to every git invocation.
+///
+/// - `--no-optional-locks`: never take optional locks (e.g. the index refresh
+///   in `git status`), so we do not race with editors like VS Code that poll
+///   git in the background.
+/// - `core.quotepath=false`: report non-ASCII paths verbatim.
+/// - `color.ui=never`: machine-readable output only.
+const GLOBAL_ARGS: &[&str] = &[
+    "--no-optional-locks",
+    "-c",
+    "core.quotepath=false",
+    "-c",
+    "color.ui=never",
+];
+
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Prevents a console window from flashing up for every git call on Windows.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Spawns git with a consistent environment. Cheap to clone.
+#[derive(Debug, Clone)]
+pub struct GitRunner {
+    program: Arc<PathBuf>,
+    search_path: Arc<OsString>,
+}
+
+impl GitRunner {
+    pub fn new(program: PathBuf, search_path: OsString) -> Self {
+        Self {
+            program: Arc::new(program),
+            search_path: Arc::new(search_path),
+        }
+    }
+
+    pub fn program(&self) -> &Path {
+        &self.program
+    }
+
+    /// Starts building a git invocation with the given arguments.
+    pub fn command<I, S>(&self, args: I) -> GitCommand<'_>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        GitCommand {
+            runner: self,
+            args: args
+                .into_iter()
+                .map(|arg| arg.as_ref().to_owned())
+                .collect(),
+            cwd: None,
+            timeout: DEFAULT_TIMEOUT,
+            success_codes: &[0],
+        }
+    }
+}
+
+/// A single git invocation, created by [`GitRunner::command`].
+#[derive(Debug)]
+#[must_use = "a git command does nothing until `output` is awaited"]
+pub struct GitCommand<'a> {
+    runner: &'a GitRunner,
+    args: Vec<OsString>,
+    cwd: Option<PathBuf>,
+    timeout: Duration,
+    success_codes: &'static [i32],
+}
+
+/// Output of a git invocation that exited with an accepted code.
+#[derive(Debug)]
+pub struct GitOutput {
+    pub stdout: Vec<u8>,
+    pub stderr: String,
+    pub exit_code: i32,
+}
+
+impl GitCommand<'_> {
+    /// Appends further arguments, e.g. paths after a `--` separator.
+    pub fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        self.args
+            .extend(args.into_iter().map(|arg| arg.as_ref().to_owned()));
+        self
+    }
+
+    pub fn current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.cwd = Some(dir.into());
+        self
+    }
+
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Exit codes treated as success. Defaults to `[0]`; some commands such as
+    /// `git diff --no-index` use `1` to signal "differences found".
+    pub fn success_codes(mut self, codes: &'static [i32]) -> Self {
+        self.success_codes = codes;
+        self
+    }
+
+    /// Runs git to completion. The process is killed if the returned future
+    /// is dropped or the timeout elapses.
+    pub async fn output(self) -> Result<GitOutput, GitError> {
+        let mut command = tokio::process::Command::new(self.runner.program.as_path());
+        command
+            .args(GLOBAL_ARGS)
+            .args(&self.args)
+            .env("PATH", self.runner.search_path.as_os_str())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if let Some(cwd) = &self.cwd {
+            command.current_dir(cwd);
+        }
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let started = Instant::now();
+        let child = command.spawn().map_err(GitError::Spawn)?;
+        let output = tokio::time::timeout(self.timeout, child.wait_with_output())
+            .await
+            .map_err(|_| GitError::Timeout {
+                command: self.display_args(),
+                timeout: self.timeout,
+            })?
+            .map_err(GitError::Spawn)?;
+
+        let code = output.status.code();
+        tracing::debug!(
+            command = %self.display_args(),
+            ?code,
+            elapsed_ms = started.elapsed().as_millis(),
+            "git"
+        );
+
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        match code {
+            Some(exit_code) if self.success_codes.contains(&exit_code) => Ok(GitOutput {
+                stdout: output.stdout,
+                stderr,
+                exit_code,
+            }),
+            _ => Err(GitError::Failed {
+                command: self.display_args(),
+                code,
+                stderr: stderr.trim().to_owned(),
+            }),
+        }
+    }
+
+    fn display_args(&self) -> String {
+        let args: Vec<_> = self.args.iter().map(|arg| arg.to_string_lossy()).collect();
+        args.join(" ")
+    }
+}

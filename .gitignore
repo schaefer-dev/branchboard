@@ -1,0 +1,14 @@
+# Rust
+/target/
+
+# Frontend
+node_modules/
+/dist/
+
+# Tauri
+/src-tauri/gen/schemas/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

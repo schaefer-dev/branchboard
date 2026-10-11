@@ -1,0 +1,22 @@
+[package]
+name = "git-core"
+description = "Git domain types and the git CLI adapter for Branchboard."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["process", "time", "io-util"] }
+tracing.workspace = true
+ts-rs.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "fs"] }
+
+[lints]
+workspace = true

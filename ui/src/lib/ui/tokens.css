@@ -1,0 +1,107 @@
+/*
+ * Design tokens ("Signal-Board").
+ *
+ * Color carries meaning only: diff additions/deletions, and a single
+ * signal-amber accent that marks "you are here" (active repository,
+ * current branch, keyboard focus). Everything else stays neutral.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Neutrals */
+  --color-chrome: #f1f2f5;
+  --color-surface: #ffffff;
+  --color-sunken: #e9ebef;
+  --color-border: #d9dce2;
+  --color-text: #1c1f24;
+  --color-text-muted: #5c6370;
+  --color-text-faint: #8a909b;
+  --color-row-hover: #e8ebf0;
+  --color-row-selected: #dde3ec;
+
+  /* Signal accent */
+  --color-accent: #c88a12;
+  --color-accent-text: #855800;
+  --color-accent-soft: rgb(200 138 18 / 14%);
+
+  /* Meaning */
+  --color-added: #1f7a4d;
+  --color-added-bg: #e3f3ea;
+  --color-deleted: #b3403a;
+  --color-deleted-bg: #fbe8e6;
+  --color-danger: #b3403a;
+
+  /* Type */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.45;
+
+  /* Space & size */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+  --row-height: 24px;
+  --diff-row-height: 20px;
+  --pane-header-height: 32px;
+  --statusbar-height: 24px;
+  --sidebar-width: 232px;
+  --list-width: 360px;
+  --radius-sm: 4px;
+  --focus-ring: 0 0 0 2px var(--color-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-chrome: #181a1f;
+    --color-surface: #1e2126;
+    --color-sunken: #15171a;
+    --color-border: #2c3038;
+    --color-text: #e2e5ea;
+    --color-text-muted: #9aa1ad;
+    --color-text-faint: #6c7380;
+    --color-row-hover: #252930;
+    --color-row-selected: #2d333d;
+
+    --color-accent: #f0b429;
+    --color-accent-text: #f0b429;
+    --color-accent-soft: rgb(240 180 41 / 14%);
+
+    --color-added: #4cc38a;
+    --color-added-bg: rgb(76 195 138 / 12%);
+    --color-deleted: #f0766b;
+    --color-deleted-bg: rgb(240 118 107 / 12%);
+    --color-danger: #f0766b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-chrome: #181a1f;
+  --color-surface: #1e2126;
+  --color-sunken: #15171a;
+  --color-border: #2c3038;
+  --color-text: #e2e5ea;
+  --color-text-muted: #9aa1ad;
+  --color-text-faint: #6c7380;
+  --color-row-hover: #252930;
+  --color-row-selected: #2d333d;
+
+  --color-accent: #f0b429;
+  --color-accent-text: #f0b429;
+  --color-accent-soft: rgb(240 180 41 / 14%);
+
+  --color-added: #4cc38a;
+  --color-added-bg: rgb(76 195 138 / 12%);
+  --color-deleted: #f0766b;
+  --color-deleted-bg: rgb(240 118 107 / 12%);
+  --color-danger: #f0766b;
+}
