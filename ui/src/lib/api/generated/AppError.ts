@@ -5,7 +5,11 @@ import type { AppErrorKind } from "./AppErrorKind";
  * Error returned by every command. Serialized as a plain object so the
  * frontend can branch on `kind` and show `message`/`detail`.
  */
-export type AppError = { kind: AppErrorKind, message: string, 
+export type AppError = { kind: AppErrorKind, 
+/**
+ * User-facing, complete sentence.
+ */
+message: string, 
 /**
  * Technical details such as git's stderr.
  */

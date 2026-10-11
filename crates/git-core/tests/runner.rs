@@ -1,12 +1,9 @@
 //! Integration tests against the real git installation.
 
-use git_core::{DiscoveryOptions, Git, GitError, GitVersion};
+mod support;
 
-async fn git() -> Git {
-    Git::discover(DiscoveryOptions::default())
-        .await
-        .expect("git must be installed to run the tests")
-}
+use git_core::{GitError, GitVersion};
+use support::git;
 
 #[tokio::test]
 async fn discovers_a_supported_git() {

@@ -30,10 +30,14 @@ pnpm app:build      # release build and installers
 | Frontend lint / format      | `pnpm lint` / `pnpm format`                            |
 | Frontend type check / tests | `pnpm check` / `pnpm test`                             |
 
+Set `BRANCHBOARD_WORKSPACE_FILE=/path/to/workspace.json` to run against a separate repository
+list instead of your own.
+
 ## Layout
 
 ```
 crates/git-core/   git domain types and CLI adapter (no Tauri dependency)
+crates/workspace/  repository registry, persistence, background summaries
 src-tauri/         Tauri shell: commands, state, wiring
 ui/src/            Svelte 5 frontend
   lib/api/         typed command wrappers and generated bindings

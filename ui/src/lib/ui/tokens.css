@@ -31,6 +31,7 @@
   --color-deleted: #b3403a;
   --color-deleted-bg: #fbe8e6;
   --color-danger: #b3403a;
+  --color-modified: #3d6fd1;
 
   /* Type */
   --font-ui:
@@ -81,6 +82,7 @@
     --color-deleted: #f0766b;
     --color-deleted-bg: rgb(240 118 107 / 12%);
     --color-danger: #f0766b;
+    --color-modified: #7aa2f7;
   }
 }
 
@@ -104,4 +106,5 @@
   --color-deleted: #f0766b;
   --color-deleted-bg: rgb(240 118 107 / 12%);
   --color-danger: #f0766b;
+  --color-modified: #7aa2f7;
 }

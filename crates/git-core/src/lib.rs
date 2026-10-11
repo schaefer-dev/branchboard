@@ -6,7 +6,9 @@
 
 mod discovery;
 mod error;
+mod repository;
 mod runner;
+mod summary;
 mod version;
 
 use std::path::Path;
@@ -14,6 +16,7 @@ use std::path::Path;
 pub use discovery::DiscoveryOptions;
 pub use error::GitError;
 pub use runner::{GitCommand, GitOutput, GitRunner};
+pub use summary::{Head, RepoSummary};
 pub use version::GitVersion;
 
 /// A located and verified git installation.

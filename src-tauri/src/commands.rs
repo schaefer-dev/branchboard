@@ -1,11 +1,17 @@
 //! Commands invoked from the frontend. Keep these thin: translate between
-//! IPC types and the core crates, nothing else.
+//! IPC types and the core crates, nothing else. Every command needs a typed
+//! wrapper in `ui/src/lib/api/commands.ts`.
 
-use tauri::{AppHandle, State};
+use std::path::PathBuf;
 
-use crate::dto::{AppInfo, GitInfo};
+use tauri::{AppHandle, Manager, State};
+use workspace::{Added, GroupId, RepoId, WorkspaceSnapshot};
+
+use crate::dto::{AddRepoResult, AppInfo, GitInfo};
 use crate::error::AppError;
 use crate::state::AppState;
+
+type CommandResult<T> = Result<T, AppError>;
 
 #[tauri::command]
 #[expect(
@@ -19,10 +25,174 @@ pub fn get_app_info(app: AppHandle) -> AppInfo {
 }
 
 #[tauri::command]
-pub async fn get_git_info(state: State<'_, AppState>) -> Result<GitInfo, AppError> {
+pub async fn get_git_info(state: State<'_, AppState>) -> CommandResult<GitInfo> {
     let git = state.git().await?;
     Ok(GitInfo {
         path: git.program().display().to_string(),
         version: git.version(),
     })
+}
+
+#[tauri::command]
+pub async fn get_workspace(state: State<'_, AppState>) -> CommandResult<WorkspaceSnapshot> {
+    Ok(state.workspace.snapshot().await)
+}
+
+#[tauri::command]
+pub async fn add_repo(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: PathBuf,
+) -> CommandResult<AddRepoResult> {
+    let git = state.git().await?;
+    let (added, workspace) = state.workspace.add_repo(git, &path).await?;
+    let (repo_id, already_added) = match added {
+        Added::New(id) => (id, false),
+        Added::Existing(id) => (id, true),
+    };
+    spawn_summary_refresh(&app, Some(repo_id.clone()));
+    Ok(AddRepoResult {
+        workspace,
+        repo_id,
+        already_added,
+    })
+}
+
+#[tauri::command]
+pub async fn relocate_repo(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    path: PathBuf,
+) -> CommandResult<WorkspaceSnapshot> {
+    let git = state.git().await?;
+    let workspace = state.workspace.relocate_repo(git, &repo_id, &path).await?;
+    spawn_summary_refresh(&app, Some(repo_id));
+    Ok(workspace)
+}
+
+#[tauri::command]
+pub async fn remove_repo(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| registry.remove_repo(&repo_id)).await
+}
+
+#[tauri::command]
+pub async fn rename_repo(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    name: Option<String>,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.rename_repo(&repo_id, name.as_deref())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_repo_favorite(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    favorite: bool,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| registry.set_favorite(&repo_id, favorite)).await
+}
+
+#[tauri::command]
+pub async fn set_repo_group(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    group_id: Option<GroupId>,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_repo_group(&repo_id, group_id)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_active_repo(
+    state: State<'_, AppState>,
+    repo_id: Option<RepoId>,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_active_repo(repo_id.as_ref())
+    })
+    .await
+}
+
+/// Creates a group and, if given, moves a repository into it.
+#[tauri::command]
+pub async fn create_group(
+    state: State<'_, AppState>,
+    name: String,
+    repo_id: Option<RepoId>,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        let group_id = registry.create_group(&name)?;
+        match &repo_id {
+            Some(repo_id) => registry.set_repo_group(repo_id, Some(group_id)),
+            None => Ok(()),
+        }
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn rename_group(
+    state: State<'_, AppState>,
+    group_id: GroupId,
+    name: String,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| registry.rename_group(&group_id, &name)).await
+}
+
+#[tauri::command]
+pub async fn delete_group(
+    state: State<'_, AppState>,
+    group_id: GroupId,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| registry.delete_group(&group_id)).await
+}
+
+#[tauri::command]
+pub async fn set_group_collapsed(
+    state: State<'_, AppState>,
+    group_id: GroupId,
+    collapsed: bool,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_group_collapsed(&group_id, collapsed)
+    })
+    .await
+}
+
+/// Refreshes all repository summaries; results arrive as events.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri injects command arguments by value"
+)]
+pub fn refresh_summaries(app: AppHandle) {
+    spawn_summary_refresh(&app, None);
+}
+
+async fn update(
+    state: &AppState,
+    change: impl FnOnce(&mut workspace::Registry) -> Result<(), workspace::WorkspaceError>,
+) -> CommandResult<WorkspaceSnapshot> {
+    let ((), snapshot) = state.workspace.update(change).await?;
+    Ok(snapshot)
+}
+
+/// Starts a summary refresh in the background.
+pub fn spawn_summary_refresh(app: &AppHandle, only: Option<RepoId>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        app.state::<AppState>()
+            .refresh_summaries(only.as_ref())
+            .await;
+    });
 }

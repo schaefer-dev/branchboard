@@ -20,7 +20,13 @@ export default defineConfig({
     target: ["chrome120", "safari16"],
     sourcemap: process.env.TAURI_ENV_DEBUG === "true",
   },
+  // Component tests mount Svelte's client build, not the server build.
+  resolve: process.env.VITEST ? { conditions: ["browser"] } : undefined,
   test: {
     include: ["src/**/*.test.ts"],
+    environment: "happy-dom",
+    // Tauri plugins import `@tauri-apps/api/core`; inlining them lets the
+    // IPC mock in `src/test/tauri-mock.ts` intercept their calls too.
+    server: { deps: { inline: [/@tauri-apps\/plugin-/] } },
   },
 });

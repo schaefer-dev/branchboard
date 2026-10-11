@@ -1,0 +1,30 @@
+<script lang="ts">
+  const paths = {
+    plus: "M8 3v10M3 8h10",
+    chevron: "M6 4l4 4-4 4",
+    star: "M8 2.5l1.7 3.5 3.8.5-2.8 2.6.7 3.8L8 11.1l-3.4 1.8.7-3.8L2.5 6.5l3.8-.5z",
+    folder: "M2 4.5h4l1.5 1.5H14v6.5H2z",
+  } as const;
+
+  interface Props {
+    name: keyof typeof paths;
+    size?: number;
+    filled?: boolean;
+  }
+
+  let { name, size = 16, filled = false }: Props = $props();
+</script>
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 16 16"
+  fill={filled ? "currentColor" : "none"}
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d={paths[name]} />
+</svg>

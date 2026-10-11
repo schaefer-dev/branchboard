@@ -1,13 +1,5 @@
 <script lang="ts">
-  import type { AppErrorKind } from "../../lib/api";
   import { appInfo } from "../../lib/state/app-info.svelte";
-
-  const gitErrorText: Record<AppErrorKind, string> = {
-    gitNotFound: "Git not found. Install git and restart Branchboard.",
-    gitUnsupported: "This git version is too old. Update git to 2.41 or newer.",
-    gitFailed: "Git could not be started.",
-    internal: "Git status unavailable.",
-  };
 
   const git = $derived(appInfo.git);
   const gitError = $derived(appInfo.gitError);
@@ -20,9 +12,7 @@
         git {git.version.major}.{git.version.minor}.{git.version.patch}
       </span>
     {:else if gitError}
-      <span class="error" title={gitError.detail ?? gitError.message}>
-        {gitErrorText[gitError.kind]}
-      </span>
+      <span class="error" title={gitError.detail ?? undefined}>{gitError.message}</span>
     {:else}
       <span class="pending">Looking for git</span>
     {/if}

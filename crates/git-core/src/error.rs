@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::GitVersion;
@@ -15,6 +16,15 @@ pub enum GitError {
 
     #[error("could not determine the git version from {output:?}")]
     UnknownVersion { output: String },
+
+    #[error("{} is not a git repository", path.display())]
+    NotARepository { path: PathBuf, stderr: String },
+
+    #[error("{} is a bare repository", path.display())]
+    BareRepository { path: PathBuf },
+
+    #[error("unexpected git output: {0}")]
+    Parse(String),
 
     #[error("failed to start git")]
     Spawn(#[source] std::io::Error),
