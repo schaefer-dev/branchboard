@@ -1,17 +1,65 @@
-# Rust
+# This repository is public. Never commit secrets, credentials, signing keys,
+# personal data or local machine state. When in doubt, ignore it here.
+
+# --- Internal-only docs (kept locally, not published) ---------------------------
+docs/
+CLAUDE.md
+
+# --- Build output -------------------------------------------------------------
 /target/
-
-# Frontend
-node_modules/
 /dist/
-
-# Tauri
+node_modules/
 /src-tauri/gen/schemas/
+*.tsbuildinfo
+coverage/
 
-# OS / editor
+# --- Secrets & credentials ------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+secrets/
+credentials*.json
+
+# Code signing & updater keys (macOS, Windows, Tauri updater)
+*.key
+*.key.pub
+*.pem
+*.p8
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+*.keychain
+*.keychain-db
+*.mobileprovision
+*.provisionprofile
+tauri-signing*
+
+# --- Local app state ------------------------------------------------------------
+# Repository lists used for development/testing (BRANCHBOARD_WORKSPACE_FILE)
+workspace.json
+workspace.json.*
+*.broken-*
+
+# --- Logs & temporary files -----------------------------------------------------
+*.log
+*.tmp
+*.swp
+*~
+.cache/
+tmp/
+
+# --- Editors & tools ------------------------------------------------------------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.claude/settings.local.json
+
+# --- OS -------------------------------------------------------------------------
 .DS_Store
 Thumbs.db
-*.log
-
-# internal-only docs
-docs/
+desktop.ini

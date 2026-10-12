@@ -3,9 +3,6 @@
 A lean git GUI for macOS and Windows: switch between repositories quickly, review and stage
 changes per file, and switch branches with ahead/behind counts against your mainline.
 
-See [docs/roadmap.md](docs/roadmap.md) for scope and milestones and [docs/adr](docs/adr) for
-architecture decisions.
-
 ## Prerequisites
 
 - Rust via [rustup](https://rustup.rs) (the toolchain in `rust-toolchain.toml` installs itself)
@@ -44,5 +41,4 @@ ui/src/            Svelte 5 frontend
   lib/state/       stores (runes classes)
   lib/ui/          design tokens and base components
   features/        feature components (repos, diff, shell, ...)
-docs/              roadmap and ADRs
 ```
