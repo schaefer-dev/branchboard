@@ -23,6 +23,13 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "changes", scheme);
     });
 
+    test("branches", async ({ page }, info) => {
+      await openApp(page);
+      await page.getByRole("tab", { name: "Branches" }).click();
+      await expect(page.getByText("Fetched 3 min ago")).toBeVisible();
+      await capture(page, info.project.name, "branches", scheme);
+    });
+
     test("quick switcher", async ({ page }, info) => {
       await openApp(page);
       await page.keyboard.press(`${await mod(page)}+p`);

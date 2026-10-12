@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "e2e": "playwright test",
-    "fixtures": "cargo test -p branchboard --test ipc write_fixtures -- --ignored",
+    "fixtures": "cargo test -p branchboard --test ipc write_ -- --ignored",
     "smoke": "node --test ui/e2e/app/smoke.test.ts"
   },
   "dependencies": {

@@ -1,37 +1,38 @@
 <script lang="ts">
+  import { branches } from "../../lib/state/branches.svelte";
   import { changes } from "../../lib/state/changes.svelte";
+  import { view } from "../../lib/state/view.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import Tabs from "../../lib/ui/Tabs.svelte";
+  import BranchesView from "../branches/BranchesView.svelte";
   import ChangesView from "../changes/ChangesView.svelte";
   import { locateRepo, removeRepo } from "../repos/repo-actions";
-
-  type View = "changes" | "branches";
 
   const views = [
     { id: "changes", label: "Changes" },
     { id: "branches", label: "Branches" },
   ] as const;
 
-  let view = $state<View>("changes");
-
   const repo = $derived(workspace.activeRepo);
   const summary = $derived(repo ? workspace.summaries.get(repo.id) : undefined);
   const missing = $derived(repo !== null && (repo.missing || summary?.status === "missing"));
 
   $effect(() => {
-    void changes.show(repo && !missing ? repo.id : null);
+    const shown = repo && !missing ? repo.id : null;
+    void changes.show(shown);
+    void branches.show(shown);
   });
 </script>
 
 <section class="work" aria-label="Working copy">
   <PaneHeader>
-    <Tabs tabs={views} bind:selected={view} label="View" />
+    <Tabs tabs={views} bind:selected={view.work} label="View" />
   </PaneHeader>
   <div class="body" role="tabpanel">
     {#if !repo}
-      <EmptyState title="Select a repository to see its {view}." />
+      <EmptyState title="Select a repository to see its {view.work}." />
     {:else if missing}
       <div class="missing">
         <EmptyState
@@ -47,10 +48,10 @@
           </button>
         </div>
       </div>
-    {:else if view === "changes"}
+    {:else if view.work === "changes"}
       <ChangesView />
     {:else}
-      <EmptyState title={repo.name} hint="Branches arrive with the next milestone." />
+      <BranchesView {repo} />
     {/if}
   </div>
 </section>
@@ -70,7 +71,8 @@
     overflow-y: auto;
   }
 
-  .body:has(:global(.changes)) {
+  .body:has(:global(.changes)),
+  .body:has(:global(.branches)) {
     overflow: hidden;
   }
 

@@ -34,6 +34,15 @@ pub enum AppErrorKind {
 }
 
 impl AppError {
+    /// Replaces the generic message of a failed git command with one that
+    /// names what the user tried; git's explanation stays in `detail`.
+    pub fn when_git_failed(mut self, message: impl Into<String>) -> Self {
+        if self.kind == AppErrorKind::GitFailed {
+            self.message = message.into();
+        }
+        self
+    }
+
     fn new(kind: AppErrorKind, message: impl Into<String>, detail: Option<String>) -> Self {
         Self {
             kind,

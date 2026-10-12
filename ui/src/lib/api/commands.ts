@@ -5,6 +5,7 @@
 import { call } from "./client";
 import type { AddRepoResult } from "./generated/AddRepoResult";
 import type { AppInfo } from "./generated/AppInfo";
+import type { BranchList } from "./generated/BranchList";
 import type { DiffRequest } from "./generated/DiffRequest";
 import type { FileDiff } from "./generated/FileDiff";
 import type { GitInfo } from "./generated/GitInfo";
@@ -47,4 +48,12 @@ export const api = {
     call<StatusSnapshot>("unstage_paths", { repoId, paths }),
   discardPaths: (repoId: RepoId, paths: string[]) =>
     call<StatusSnapshot>("discard_paths", { repoId, paths }),
+
+  getBranches: (repoId: RepoId) => call<BranchList>("get_branches", { repoId }),
+  switchBranch: (repoId: RepoId, branch: string) =>
+    call<BranchList>("switch_branch", { repoId, branch }),
+  fetchRepo: (repoId: RepoId) => call<BranchList>("fetch_repo", { repoId }),
+  setMainline: (repoId: RepoId, mainline: string | null) =>
+    call<WorkspaceSnapshot>("set_mainline", { repoId, mainline }),
+  setFetchInterval: (minutes: number) => call<WorkspaceSnapshot>("set_fetch_interval", { minutes }),
 } as const;

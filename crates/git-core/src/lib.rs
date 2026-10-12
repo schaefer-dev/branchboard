@@ -4,6 +4,7 @@
 //! All interaction with git goes through the [`GitRunner`], which spawns the
 //! user's git executable with a fixed, safe set of global options.
 
+mod branches;
 mod changes;
 mod diff;
 mod discovery;
@@ -16,6 +17,7 @@ mod version;
 
 use std::path::Path;
 
+pub use branches::{AheadBehind, Branch, BranchList, UpstreamState};
 pub use changes::{DiffArea, DiffRequest};
 pub use diff::{DiffHunk, DiffLimits, DiffLine, DiffLineKind, FileDiff};
 pub use discovery::DiscoveryOptions;

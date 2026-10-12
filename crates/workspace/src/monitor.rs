@@ -89,6 +89,11 @@ impl Monitor {
         });
     }
 
+    /// The repository currently watched, i.e. the one on screen.
+    pub(crate) fn watched(&self) -> Option<RepoId> {
+        lock(&self.watched).as_ref().map(|w| w.repo_id.clone())
+    }
+
     /// Requests a refresh of the watched repository.
     pub(crate) fn poke(&self) {
         if let Some(watched) = lock(&self.watched).as_ref() {

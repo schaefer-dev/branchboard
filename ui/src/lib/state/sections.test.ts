@@ -11,13 +11,14 @@ function repo(name: string, extra: Partial<RepoView> = {}): RepoView {
     path: `/code/${name}`,
     groupId: null,
     favorite: false,
+    mainline: "origin/development",
     missing: false,
     ...extra,
   };
 }
 
 function snapshot(repos: RepoView[], groups: WorkspaceSnapshot["groups"] = []): WorkspaceSnapshot {
-  return { repos, groups, activeRepoId: null };
+  return { repos, groups, activeRepoId: null, settings: { fetchIntervalMinutes: 10 } };
 }
 
 describe("buildSections", () => {

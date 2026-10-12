@@ -61,6 +61,7 @@ test.describe("repository sidebar", () => {
         "Move to group/Side projects",
         "Move to group/Work",
         "Move to group/New group…",
+        "Compare branches with…",
         "Remove from Branchboard…",
       ]);
 

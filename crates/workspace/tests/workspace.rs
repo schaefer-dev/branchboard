@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use git_core::ChangeKind;
 use workspace::{
-    Added, EventSink, StatusUpdate, SummaryState, SummaryUpdate, Workspace, WorkspaceError,
+    Added, EventSink, FetchState, FetchUpdate, StatusUpdate, SummaryState, SummaryUpdate,
+    Workspace, WorkspaceError,
 };
 
 async fn git() -> Git {
@@ -28,6 +29,7 @@ async fn init_repo(git: &Git, dir: &Path) -> PathBuf {
 struct Collect {
     summaries: Mutex<Vec<SummaryUpdate>>,
     statuses: Mutex<Vec<StatusUpdate>>,
+    fetches: Mutex<Vec<FetchUpdate>>,
 }
 
 impl EventSink for Collect {
@@ -37,6 +39,10 @@ impl EventSink for Collect {
 
     fn status(&self, update: StatusUpdate) {
         self.statuses.lock().unwrap().push(update);
+    }
+
+    fn fetch(&self, update: FetchUpdate) {
+        self.fetches.lock().unwrap().push(update);
     }
 }
 
@@ -209,4 +215,40 @@ async fn publishes_status_changes_detected_by_the_watcher() {
         assert!(tokio::time::Instant::now() < deadline, "no status event");
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fetches_and_lists_branches_with_the_configured_mainline() {
+    let git = git().await;
+    let root = tempfile::tempdir().unwrap();
+    let repo = init_repo(&git, &root.path().join("api")).await;
+    commit_all(&git, &repo).await;
+    let (workspace, events) = open(root.path().join("workspace.json"));
+    let (added, _) = workspace.add_repo(&git, &repo).await.unwrap();
+    let id = added.id().clone();
+
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/development");
+    assert!(!list.mainline_exists);
+
+    workspace
+        .update(|registry| registry.set_mainline(&id, Some("main")))
+        .await
+        .unwrap();
+    let list = workspace.fetch(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "main");
+    assert!(list.mainline_exists);
+    assert_eq!(list.branches.len(), 1);
+
+    let states: Vec<_> = events
+        .fetches
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|update| update.state.clone())
+        .collect();
+    assert!(matches!(
+        states.as_slice(),
+        [FetchState::Running, FetchState::Done]
+    ));
 }

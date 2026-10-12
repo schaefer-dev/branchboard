@@ -8,16 +8,24 @@ mod registry;
 mod snapshot;
 mod store;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use git_core::{ChangeKind, DiffRequest, FileDiff, Git, Head, StatusSnapshot};
+use git_core::{
+    BranchList, ChangeKind, DiffRequest, FileDiff, Git, GitError, Head, StatusSnapshot,
+};
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task::JoinSet;
 
 pub use error::WorkspaceError;
-pub use registry::{Added, Group, GroupId, Registry, RepoEntry, RepoId};
-pub use snapshot::{RepoView, StatusUpdate, SummaryState, SummaryUpdate, WorkspaceSnapshot};
+pub use registry::{
+    Added, DEFAULT_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId, Settings,
+};
+pub use snapshot::{
+    FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate, WorkspaceSnapshot,
+};
 
 use crate::monitor::Monitor;
 
@@ -28,6 +36,7 @@ const MAX_PARALLEL_SUMMARIES: usize = 4;
 pub trait EventSink: Send + Sync + 'static {
     fn summary(&self, update: SummaryUpdate);
     fn status(&self, update: StatusUpdate);
+    fn fetch(&self, update: FetchUpdate);
 }
 
 pub struct Workspace {
@@ -35,6 +44,8 @@ pub struct Workspace {
     registry: Mutex<Registry>,
     sink: Arc<dyn EventSink>,
     monitor: Arc<Monitor>,
+    /// Repositories with a fetch in flight.
+    fetching: std::sync::Mutex<HashSet<RepoId>>,
 }
 
 impl Workspace {
@@ -47,6 +58,7 @@ impl Workspace {
             registry: Mutex::new(registry),
             monitor: Monitor::new(Arc::clone(&sink)),
             sink,
+            fetching: std::sync::Mutex::new(HashSet::new()),
         }
     }
 
@@ -219,8 +231,111 @@ impl Workspace {
         Ok(self.monitor.refresh(git, id, &root).await?)
     }
 
+    pub async fn branches(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
+        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        Ok(git.branches(&path, &mainline).await?)
+    }
+
+    /// Switches to `branch` and returns the updated branch list. The new
+    /// status is published like any other status change.
+    pub async fn switch_branch(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        branch: &str,
+    ) -> Result<BranchList, WorkspaceError> {
+        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        {
+            let _writes = self.monitor.writes.lock().await;
+            git.switch(&path, branch).await?;
+            self.monitor.refresh(git, id, &path).await?;
+        }
+        Ok(git.branches(&path, &mainline).await?)
+    }
+
+    /// Fetches all remotes of `id` and returns the updated branch list.
+    /// Progress is also published as [`FetchUpdate`]s. A fetch that is
+    /// already running is not started twice.
+    pub async fn fetch(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
+        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let started = self
+            .fetching
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id.clone());
+        if started {
+            self.publish_fetch(id, FetchState::Running);
+            let result = git.fetch(&path).await;
+            self.fetching
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(id);
+            match result {
+                Ok(()) => self.publish_fetch(id, FetchState::Done),
+                Err(error) => {
+                    let (message, detail) = describe_fetch_error(&error);
+                    self.publish_fetch(id, FetchState::Failed { message, detail });
+                    return Err(error.into());
+                }
+            }
+        }
+        Ok(git.branches(&path, &mainline).await?)
+    }
+
+    /// Fetches the watched repository if its last fetch (by any tool) is
+    /// older than `max_age`. Failures are published, not returned.
+    pub async fn fetch_if_stale(&self, git: &Git, max_age: Duration) {
+        let Some(id) = self.monitor.watched() else {
+            return;
+        };
+        let Ok(path) = self.repo_path(&id).await else {
+            return;
+        };
+        let last = git.last_fetched(&path).await.ok().flatten();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
+        let max_age = i64::try_from(max_age.as_secs()).unwrap_or(i64::MAX);
+        if last.is_some_and(|at| now.saturating_sub(at) < max_age) {
+            return;
+        }
+        tracing::debug!(path = %path.display(), "background fetch");
+        if let Err(error) = self.fetch(git, &id).await {
+            tracing::info!(?error, "background fetch failed");
+        }
+    }
+
+    pub async fn settings(&self) -> Settings {
+        self.registry.lock().await.settings.clone()
+    }
+
+    fn publish_fetch(&self, id: &RepoId, state: FetchState) {
+        self.sink.fetch(FetchUpdate {
+            repo_id: id.clone(),
+            state,
+        });
+    }
+
     async fn repo_path(&self, id: &RepoId) -> Result<PathBuf, WorkspaceError> {
         Ok(self.registry.lock().await.repo(id)?.path.clone())
+    }
+
+    async fn repo_path_and_mainline(
+        &self,
+        id: &RepoId,
+    ) -> Result<(PathBuf, String), WorkspaceError> {
+        let registry = self.registry.lock().await;
+        let repo = registry.repo(id)?;
+        Ok((repo.path.clone(), repo.mainline().to_owned()))
+    }
+}
+
+/// User-facing message and git's own explanation of a failed fetch.
+fn describe_fetch_error(error: &GitError) -> (String, Option<String>) {
+    match error {
+        GitError::Failed { stderr, .. } => ("Fetching failed.".into(), Some(stderr.clone())),
+        GitError::Timeout { .. } => ("Fetching took too long and was stopped.".into(), None),
+        other => ("Fetching failed.".into(), Some(other.to_string())),
     }
 }
 

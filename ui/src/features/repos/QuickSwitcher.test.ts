@@ -14,6 +14,7 @@ function repo(id: string, name: string): RepoView {
     path: `/code/${name}`,
     groupId: null,
     favorite: false,
+    mainline: "origin/development",
     missing: false,
   };
 }
@@ -22,6 +23,7 @@ const snapshot: WorkspaceSnapshot = {
   repos: [repo("1", "api"), repo("2", "payment-service"), repo("3", "web")],
   groups: [],
   activeRepoId: "1",
+  settings: { fetchIntervalMinutes: 10 },
 };
 
 describe("QuickSwitcher", () => {
@@ -30,7 +32,11 @@ describe("QuickSwitcher", () => {
   beforeEach(() => {
     resetTauriMock();
     workspace.snapshot = structuredClone(snapshot);
-    respond("set_active_repo", ({ repoId }) => ({ ...snapshot, activeRepoId: repoId }));
+    respond("set_active_repo", ({ repoId }) => ({
+      ...snapshot,
+      activeRepoId: repoId,
+      settings: { fetchIntervalMinutes: 10 },
+    }));
   });
 
   afterEach(() => {

@@ -11,6 +11,8 @@
   import WorkPane from "./features/shell/WorkPane.svelte";
   import { commands } from "./lib/commands";
   import { appInfo } from "./lib/state/app-info.svelte";
+  import { branches } from "./lib/state/branches.svelte";
+  import { view } from "./lib/state/view.svelte";
   import { changes } from "./lib/state/changes.svelte";
   import { notices } from "./lib/state/notices.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
@@ -22,7 +24,7 @@
 
   onMount(() => {
     void appInfo.load();
-    Promise.all([changes.init(), workspace.init()]).catch((error: unknown) => {
+    Promise.all([changes.init(), branches.init(), workspace.init()]).catch((error: unknown) => {
       notices.error(error);
     });
 
@@ -32,6 +34,24 @@
         title: "Add repositories…",
         shortcut: { key: "o", mod: true },
         run: addRepositories,
+      }),
+      commands.register({
+        id: "view.changes",
+        title: "Show changes",
+        shortcut: { key: "1", mod: true },
+        run: () => (view.work = "changes"),
+      }),
+      commands.register({
+        id: "view.branches",
+        title: "Show branches",
+        shortcut: { key: "2", mod: true },
+        run: () => (view.work = "branches"),
+      }),
+      commands.register({
+        id: "repo.fetch",
+        title: "Fetch",
+        shortcut: { key: "f", mod: true, shift: true },
+        run: () => branches.fetch(),
       }),
       commands.register({
         id: "repo.switch",
@@ -73,7 +93,11 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} oncontextmenu={onContextMenu} />
+<svelte:window
+  onkeydown={onKeydown}
+  oncontextmenu={onContextMenu}
+  onfocus={() => void branches.reload()}
+/>
 
 <div class="app">
   <main class="panes">

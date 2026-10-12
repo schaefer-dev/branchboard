@@ -67,6 +67,7 @@ impl GitRunner {
                 .collect(),
             cwd: None,
             stdin: None,
+            untranslated: false,
             timeout: DEFAULT_TIMEOUT,
             success_codes: &[0],
         }
@@ -81,6 +82,7 @@ pub struct GitCommand<'a> {
     args: Vec<OsString>,
     cwd: Option<PathBuf>,
     stdin: Option<Vec<u8>>,
+    untranslated: bool,
     timeout: Duration,
     success_codes: &'static [i32],
 }
@@ -132,6 +134,13 @@ impl GitCommand<'_> {
             .stdin(input)
     }
 
+    /// Runs git with the C locale, for output that git would otherwise
+    /// translate (e.g. `%(upstream:track)`).
+    pub fn untranslated(mut self) -> Self {
+        self.untranslated = true;
+        self
+    }
+
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
@@ -163,6 +172,9 @@ impl GitCommand<'_> {
             .kill_on_drop(true);
         if let Some(cwd) = &self.cwd {
             command.current_dir(cwd);
+        }
+        if self.untranslated {
+            command.env("LC_ALL", "C");
         }
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);

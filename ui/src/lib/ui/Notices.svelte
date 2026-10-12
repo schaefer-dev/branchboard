@@ -5,7 +5,12 @@
 <div class="notices" aria-live="polite">
   {#each notices.items as notice (notice.id)}
     <div class="notice" class:error={notice.tone === "error"} role="status">
-      <p class="selectable" title={notice.detail ?? undefined}>{notice.message}</p>
+      <div class="text selectable">
+        <p>{notice.message}</p>
+        {#if notice.detail}
+          <pre>{notice.detail}</pre>
+        {/if}
+      </div>
       <button
         class="icon-btn"
         aria-label="Dismiss"
@@ -45,8 +50,23 @@
     border-left-color: var(--color-danger);
   }
 
-  p {
+  .text {
     flex: 1;
-    margin: 2px 0 0;
+    min-width: 0;
+    margin-top: 2px;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  pre {
+    max-height: 7.5em;
+    margin: var(--space-2) 0 0;
+    overflow: auto;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    white-space: pre-wrap;
   }
 </style>

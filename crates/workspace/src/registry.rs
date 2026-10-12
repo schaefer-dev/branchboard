@@ -43,13 +43,43 @@ pub struct RepoEntry {
     pub group_id: Option<GroupId>,
     #[serde(default)]
     pub favorite: bool,
+    /// Ref the branches are compared with; [`DEFAULT_MAINLINE`] otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mainline: Option<String>,
 }
+
+/// Branches are compared with this ref unless a repository overrides it.
+pub const DEFAULT_MAINLINE: &str = "origin/development";
+
+/// Background fetch interval unless the user changes it.
+pub const DEFAULT_FETCH_INTERVAL_MINUTES: u32 = 10;
 
 impl RepoEntry {
     pub fn display_name(&self) -> String {
         self.custom_name
             .clone()
             .unwrap_or_else(|| folder_name(&self.path))
+    }
+
+    pub fn mainline(&self) -> &str {
+        self.mainline.as_deref().unwrap_or(DEFAULT_MAINLINE)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Settings {
+    /// Minutes between background fetches of the active repository; 0 turns
+    /// background fetching off.
+    pub fetch_interval_minutes: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            fetch_interval_minutes: DEFAULT_FETCH_INTERVAL_MINUTES,
+        }
     }
 }
 
@@ -72,6 +102,8 @@ pub struct Registry {
     pub groups: Vec<Group>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active_repo_id: Option<RepoId>,
+    #[serde(default)]
+    pub settings: Settings,
 }
 
 /// Result of [`Registry::add_repo`].
@@ -124,6 +156,7 @@ impl Registry {
             custom_name: None,
             group_id: None,
             favorite: false,
+            mainline: None,
         });
         Added::New(id)
     }
@@ -155,6 +188,24 @@ impl Registry {
         let name = name.map(str::trim).filter(|name| !name.is_empty());
         self.repo_mut(id)?.custom_name = name.map(str::to_owned);
         Ok(())
+    }
+
+    /// Sets the ref branches are compared with; `None` or a blank value
+    /// restores the default.
+    pub fn set_mainline(
+        &mut self,
+        id: &RepoId,
+        mainline: Option<&str>,
+    ) -> Result<(), WorkspaceError> {
+        let mainline = mainline
+            .map(str::trim)
+            .filter(|m| !m.is_empty() && *m != DEFAULT_MAINLINE);
+        self.repo_mut(id)?.mainline = mainline.map(str::to_owned);
+        Ok(())
+    }
+
+    pub fn set_fetch_interval(&mut self, minutes: u32) {
+        self.settings.fetch_interval_minutes = minutes;
     }
 
     pub fn set_favorite(&mut self, id: &RepoId, favorite: bool) -> Result<(), WorkspaceError> {
@@ -276,6 +327,16 @@ mod tests {
 
         registry.rename_repo(&id, Some("   ")).unwrap();
         assert_eq!(registry.repo(&id).unwrap().display_name(), "api");
+    }
+
+    #[test]
+    fn mainline_defaults_and_resets() {
+        let (mut registry, id) = registry_with_repo();
+        assert_eq!(registry.repo(&id).unwrap().mainline(), "origin/development");
+        registry.set_mainline(&id, Some(" origin/main ")).unwrap();
+        assert_eq!(registry.repo(&id).unwrap().mainline(), "origin/main");
+        registry.set_mainline(&id, Some("")).unwrap();
+        assert_eq!(registry.repo(&id).unwrap().mainline, None);
     }
 
     #[test]

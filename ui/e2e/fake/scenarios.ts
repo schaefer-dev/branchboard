@@ -1,12 +1,14 @@
 // Starting states for the fake backend, selected with `?scenario=<name>`.
 
 import type {
+  BranchList,
   FileDiff,
   RepoView,
   StatusSnapshot,
   SummaryState,
   WorkspaceSnapshot,
 } from "../../src/lib/api";
+import branchesFixture from "../fixtures/branches.json";
 import changesFixture from "../fixtures/changes.json";
 
 /** Recorded from the real backend by `src-tauri/tests/ipc.rs`. */
@@ -15,12 +17,36 @@ const recorded = changesFixture as unknown as {
   diffs: Record<string, FileDiff>;
 };
 
+/** Recorded from the real backend; `lastFetched` is set per scenario. */
+const recordedBranches = branchesFixture as unknown as BranchList;
+
+/** Three minutes ago, so screenshots show a stable "Fetched 3 min ago". */
+const recentFetch = () => Math.floor(Date.now() / 1000) - 3 * 60;
+
+function singleBranch(name: string): BranchList {
+  return {
+    branches: [
+      {
+        name,
+        current: true,
+        upstream: { kind: "none" },
+        mainline: null,
+        committedAt: 1_767_225_600,
+      },
+    ],
+    mainline: "origin/development",
+    mainlineExists: false,
+    lastFetched: null,
+  };
+}
+
 export interface Scenario {
   workspace: WorkspaceSnapshot;
   statuses: Record<string, StatusSnapshot>;
   /** Keyed by repo id, then `${area}:${path}`. */
   diffs: Record<string, Record<string, FileDiff>>;
   summaries: Record<string, SummaryState>;
+  branches: Record<string, BranchList>;
 }
 
 function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView {
@@ -31,6 +57,7 @@ function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView
     path: `/home/dev/code/${name}`,
     groupId: null,
     favorite: false,
+    mainline: "origin/development",
     missing: false,
     ...extra,
   };
@@ -83,19 +110,31 @@ function defaultScenario(): Scenario {
         { id: "side", name: "Side projects", collapsed: false },
       ],
       activeRepoId: "api",
+      settings: { fetchIntervalMinutes: 10 },
     },
     statuses,
     diffs: { api: structuredClone(recorded.diffs) },
     summaries,
+    branches: {
+      api: { ...structuredClone(recordedBranches), lastFetched: recentFetch() },
+      web: singleBranch("development"),
+      dotfiles: singleBranch("main"),
+    },
   };
 }
 
 function emptyScenario(): Scenario {
   return {
-    workspace: { repos: [], groups: [], activeRepoId: null },
+    workspace: {
+      repos: [],
+      groups: [],
+      activeRepoId: null,
+      settings: { fetchIntervalMinutes: 10 },
+    },
     statuses: {},
     diffs: {},
     summaries: {},
+    branches: {},
   };
 }
 

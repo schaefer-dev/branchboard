@@ -6,6 +6,7 @@ import { confirmDestructive, pickFolders } from "../../lib/platform/dialogs";
 import { showContextMenu, type MenuEntry } from "../../lib/platform/menu";
 import { workspace } from "../../lib/state/workspace.svelte";
 import { prompts } from "../../lib/ui/prompt.svelte";
+import { chooseMainline } from "../branches/branch-actions";
 
 function folderName(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
@@ -104,6 +105,7 @@ export function showRepoMenu(repo: RepoView): Promise<void> {
         { kind: "item", text: "New group…", run: () => void newGroup(repo) },
       ],
     },
+    { kind: "item", text: "Compare branches with…", run: () => void chooseMainline(repo) },
     { kind: "separator" },
     ...(repo.missing
       ? [{ kind: "item", text: "Locate…", run: () => void locateRepo(repo) } as const]

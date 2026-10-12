@@ -8,6 +8,7 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
 import type {
   AppError,
+  BranchList,
   ChangeKind,
   DiffRequest,
   FileChange,
@@ -35,9 +36,11 @@ class CommandFailure extends Error {
   }
 }
 
-const fail = (kind: AppError["kind"], message: string): never => {
-  throw new CommandFailure({ kind, message, detail: null });
+const fail = (kind: AppError["kind"], message: string, detail: string | null = null): never => {
+  throw new CommandFailure({ kind, message, detail });
 };
+
+const now = () => Math.floor(Date.now() / 1000);
 
 const byPath = (a: FileChange, b: FileChange) => a.path.localeCompare(b.path);
 
@@ -64,6 +67,7 @@ export class FakeBackend {
   private lastMenu: MenuItem[] = [];
   private confirm = true;
   private pickedFolders: string[] = [];
+  private failures = new Map<string, string>();
   private nextId = 1;
 
   constructor(scenario: Scenario) {
@@ -153,6 +157,21 @@ export class FakeBackend {
             (c) => !paths.has(c.path) || c.kind === "conflicted",
           );
         });
+      case "get_branches":
+        return this.branchList(String(args.repoId));
+      case "switch_branch":
+        return this.switchBranch(String(args.repoId), String(args.branch));
+      case "fetch_repo":
+        return this.fetchRepo(String(args.repoId));
+      case "set_mainline": {
+        const repo = this.repo(args.repoId);
+        const mainline = typeof args.mainline === "string" ? args.mainline.trim() : "";
+        repo.mainline = mainline || "origin/development";
+        return this.snapshot();
+      }
+      case "set_fetch_interval":
+        workspace.settings.fetchIntervalMinutes = Number(args.minutes);
+        return this.snapshot();
       case "plugin:dialog|open":
         return this.pickedFolders.length > 0 ? this.pickedFolders : null;
       case "plugin:dialog|message": {
@@ -185,6 +204,9 @@ export class FakeBackend {
       },
       setPickedFolders: (paths) => {
         this.pickedFolders = paths;
+      },
+      failNext: (command, stderr) => {
+        this.failures.set(command, stderr);
       },
       drop: async (paths) => {
         const position = { x: 100, y: 100 };
@@ -235,6 +257,7 @@ export class FakeBackend {
         path,
         groupId: null,
         favorite: false,
+        mainline: "origin/development",
         missing: false,
       });
       this.state.statuses[id] = {
@@ -250,6 +273,54 @@ export class FakeBackend {
     }
     workspace.activeRepoId = id;
     return { workspace: this.snapshot(), repoId: id, alreadyAdded: Boolean(existing) };
+  }
+
+  private branchList(repoId: string): BranchList {
+    const repo = this.repo(repoId);
+    const list = (this.state.branches[repoId] ??= {
+      branches: [],
+      mainline: repo.mainline,
+      mainlineExists: false,
+      lastFetched: null,
+    });
+    // The fake only knows the default mainline; any other ref "does not exist".
+    const exists = repo.mainline === "origin/development" && list.branches.some((b) => b.mainline);
+    return structuredClone({ ...list, mainline: repo.mainline, mainlineExists: exists });
+  }
+
+  private takeFailure(command: string, message: string): void {
+    const stderr = this.failures.get(command);
+    if (stderr === undefined) return;
+    this.failures.delete(command);
+    fail("gitFailed", message, stderr);
+  }
+
+  private async switchBranch(repoId: string, name: string): Promise<BranchList> {
+    this.takeFailure("switch_branch", `Could not switch to ${name}.`);
+    const list = this.state.branches[repoId];
+    if (!list) return this.branchList(repoId);
+    for (const branch of list.branches) branch.current = branch.name === name;
+    const status = this.status(repoId);
+    status.head = { kind: "branch", name };
+    await emit("repo-status", { repoId, status: structuredClone(status) });
+    return this.branchList(repoId);
+  }
+
+  private async fetchRepo(repoId: string): Promise<BranchList> {
+    await emit("repo-fetch", { repoId, state: { status: "running" } });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const stderr = this.failures.get("fetch_repo");
+    if (stderr !== undefined) {
+      await emit("repo-fetch", {
+        repoId,
+        state: { status: "failed", message: "Fetching failed.", detail: stderr },
+      });
+    }
+    this.takeFailure("fetch_repo", "Fetching failed.");
+    const list = this.state.branches[repoId];
+    if (list) list.lastFetched = now();
+    await emit("repo-fetch", { repoId, state: { status: "done" } });
+    return this.branchList(repoId);
   }
 
   private status(repoId: string): StatusSnapshot {
@@ -391,9 +462,9 @@ export function installFakeBackend(): void {
 
   mockWindows("main");
   mockIPC(
-    (cmd, args) => {
+    async (cmd, args) => {
       try {
-        return backend.handle(cmd, (args ?? {}) as Args);
+        return await backend.handle(cmd, (args ?? {}) as Args);
       } catch (error) {
         // The real IPC rejects with the plain `AppError` object.
         // eslint-disable-next-line @typescript-eslint/only-throw-error

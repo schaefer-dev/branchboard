@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 
-use git_core::{DiffRequest, FileDiff, StatusSnapshot};
+use git_core::{BranchList, DiffRequest, FileDiff, StatusSnapshot};
 use tauri::State;
 use workspace::{Added, GroupId, RepoId, WorkspaceSnapshot};
 
@@ -221,6 +221,67 @@ pub async fn discard_paths(
 ) -> CommandResult<StatusSnapshot> {
     let git = state.git().await?;
     Ok(state.workspace.discard(git, &repo_id, &paths).await?)
+}
+
+#[tauri::command]
+pub async fn get_branches(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<BranchList> {
+    let git = state.git().await?;
+    Ok(state.workspace.branches(git, &repo_id).await?)
+}
+
+#[tauri::command]
+pub async fn switch_branch(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    branch: String,
+) -> CommandResult<BranchList> {
+    let git = state.git().await?;
+    state
+        .workspace
+        .switch_branch(git, &repo_id, &branch)
+        .await
+        .map_err(|error| {
+            AppError::from(error).when_git_failed(format!("Could not switch to {branch}."))
+        })
+}
+
+#[tauri::command]
+pub async fn fetch_repo(state: State<'_, AppState>, repo_id: RepoId) -> CommandResult<BranchList> {
+    let git = state.git().await?;
+    state
+        .workspace
+        .fetch(git, &repo_id)
+        .await
+        .map_err(|error| AppError::from(error).when_git_failed("Fetching failed."))
+}
+
+/// Sets the ref branches are compared with; `null` restores the default.
+#[tauri::command]
+pub async fn set_mainline(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    mainline: Option<String>,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_mainline(&repo_id, mainline.as_deref())
+    })
+    .await
+}
+
+/// Minutes between background fetches; 0 turns them off.
+#[tauri::command]
+pub async fn set_fetch_interval(
+    state: State<'_, AppState>,
+    minutes: u32,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_fetch_interval(minutes);
+        Ok(())
+    })
+    .await
 }
 
 async fn update(

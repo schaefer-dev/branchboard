@@ -3,10 +3,11 @@
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
-use workspace::{EventSink, StatusUpdate, SummaryUpdate};
+use workspace::{EventSink, FetchUpdate, StatusUpdate, SummaryUpdate};
 
 pub const REPO_SUMMARY: &str = "repo-summary";
 pub const REPO_STATUS: &str = "repo-status";
+pub const REPO_FETCH: &str = "repo-fetch";
 
 pub struct TauriEvents<R: Runtime>(pub AppHandle<R>);
 
@@ -25,5 +26,9 @@ impl<R: Runtime> EventSink for TauriEvents<R> {
 
     fn status(&self, update: StatusUpdate) {
         self.emit(REPO_STATUS, update);
+    }
+
+    fn fetch(&self, update: FetchUpdate) {
+        self.emit(REPO_FETCH, update);
     }
 }

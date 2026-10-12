@@ -2,8 +2,9 @@
 import type { Group } from "./Group";
 import type { RepoId } from "./RepoId";
 import type { RepoView } from "./RepoView";
+import type { Settings } from "./Settings";
 
 /**
  * Everything the frontend needs to render the repository list.
  */
-export type WorkspaceSnapshot = { repos: Array<RepoView>, groups: Array<Group>, activeRepoId: RepoId | null, };
+export type WorkspaceSnapshot = { repos: Array<RepoView>, groups: Array<Group>, activeRepoId: RepoId | null, settings: Settings, };

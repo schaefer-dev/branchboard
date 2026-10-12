@@ -8,6 +8,10 @@ export type RepoView = { id: RepoId,
  */
 name: string, customName: string | null, path: string, groupId: GroupId | null, favorite: boolean, 
 /**
+ * The ref branches are compared with.
+ */
+mainline: string, 
+/**
  * The folder was moved or deleted, or is no longer a repository.
  */
 missing: boolean, };

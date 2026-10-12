@@ -1,4 +1,5 @@
 use std::ops::Deref;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -21,6 +22,8 @@ pub struct Inner {
     pub workspace: Workspace,
     git: OnceCell<Result<Git, AppError>>,
     last_focus_refresh: Mutex<Option<Instant>>,
+    /// Background fetches only happen while the window has focus.
+    focused: AtomicBool,
 }
 
 impl Deref for AppState {
@@ -38,7 +41,32 @@ impl AppState {
             workspace,
             git: OnceCell::new(),
             last_focus_refresh: Mutex::new(None),
+            focused: AtomicBool::new(true),
         }))
+    }
+
+    pub fn set_focused(&self, focused: bool) {
+        self.focused.store(focused, Ordering::Relaxed);
+    }
+
+    /// Fetches the repository on screen in the background if background
+    /// fetching is on, the window has focus and the last fetch is older
+    /// than the configured interval.
+    pub fn spawn_background_fetch(&self) {
+        if !self.focused.load(Ordering::Relaxed) {
+            return;
+        }
+        let state = self.clone();
+        tauri::async_runtime::spawn(async move {
+            let minutes = state.workspace.settings().await.fetch_interval_minutes;
+            if minutes == 0 {
+                return;
+            }
+            if let Ok(git) = state.git().await {
+                let max_age = Duration::from_secs(u64::from(minutes) * 60);
+                state.workspace.fetch_if_stale(git, max_age).await;
+            }
+        });
     }
 
     /// Refreshes repository summaries (all, or only `only`) in the

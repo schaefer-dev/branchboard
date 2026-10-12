@@ -75,6 +75,12 @@ impl Harness {
 }
 
 fn git(repo: &Path, args: &[&str]) {
+    git_at(repo, "2026-01-01T12:00:00Z", args);
+}
+
+/// Runs git with author and committer dates fixed to `date`, so commits
+/// (and their order by date) are reproducible.
+fn git_at(repo: &Path, date: &str, args: &[&str]) {
     let status = Command::new("git")
         .args([
             "-c",
@@ -88,8 +94,8 @@ fn git(repo: &Path, args: &[&str]) {
         ])
         .args(args)
         .current_dir(repo)
-        .env("GIT_AUTHOR_DATE", "2026-01-01T12:00:00Z")
-        .env("GIT_COMMITTER_DATE", "2026-01-01T12:00:00Z")
+        .env("GIT_AUTHOR_DATE", date)
+        .env("GIT_COMMITTER_DATE", date)
         .status()
         .unwrap();
     assert!(status.success(), "git {args:?} failed");
@@ -455,4 +461,194 @@ fn registers_every_command_the_frontend_calls() {
             assert!(!message.contains("not found"), "{command}: {message}");
         }
     }
+}
+
+fn commit_at(repo: &Path, date: &str, file: &str, contents: &str) {
+    write(repo, file, contents);
+    git_at(repo, date, &["add", "--", file]);
+    git_at(
+        repo,
+        date,
+        &["commit", "--quiet", "-m", &format!("update {file}")],
+    );
+}
+
+/// A repository with a bare `origin` and branches in every relation to
+/// `origin/development` and to their upstreams.
+fn branch_repo(harness: &Harness) -> PathBuf {
+    let remote = harness.dir.path().join("origin.git");
+    std::fs::create_dir_all(&remote).unwrap();
+    git(
+        &remote,
+        &["init", "--quiet", "--bare", "--initial-branch=development"],
+    );
+    let repo = harness.repo("web");
+    let url = remote.to_str().unwrap();
+    git(&repo, &["remote", "add", "origin", url]);
+
+    commit_at(&repo, "2026-01-01T10:00:00Z", "app.txt", "v1\n");
+    git(&repo, &["push", "--quiet", "-u", "origin", "development"]);
+
+    git(&repo, &["switch", "--quiet", "-c", "fix/header-overflow"]);
+    commit_at(&repo, "2026-01-02T10:00:00Z", "header.css", "a\n");
+    git(
+        &repo,
+        &["push", "--quiet", "-u", "origin", "fix/header-overflow"],
+    );
+
+    git(&repo, &["switch", "--quiet", "development"]);
+    commit_at(&repo, "2026-01-03T10:00:00Z", "app.txt", "v2\n");
+    commit_at(&repo, "2026-01-04T10:00:00Z", "app.txt", "v3\n");
+    git(&repo, &["push", "--quiet", "origin", "development"]);
+
+    git(
+        &repo,
+        &[
+            "switch",
+            "--quiet",
+            "-c",
+            "chore/old-cleanup",
+            "fix/header-overflow",
+        ],
+    );
+    git(
+        &repo,
+        &["push", "--quiet", "-u", "origin", "chore/old-cleanup"],
+    );
+    git(
+        &repo,
+        &["push", "--quiet", "origin", "--delete", "chore/old-cleanup"],
+    );
+
+    git(
+        &repo,
+        &["switch", "--quiet", "-c", "spike/local-only", "development"],
+    );
+    commit_at(&repo, "2026-01-05T10:00:00Z", "spike.txt", "idea\n");
+
+    git(
+        &repo,
+        &[
+            "switch",
+            "--quiet",
+            "-c",
+            "feature/login-rate-limit",
+            "development",
+        ],
+    );
+    commit_at(&repo, "2026-01-06T10:00:00Z", "login.txt", "1\n");
+    commit_at(&repo, "2026-01-07T10:00:00Z", "login.txt", "2\n");
+    git(
+        &repo,
+        &[
+            "push",
+            "--quiet",
+            "-u",
+            "origin",
+            "feature/login-rate-limit",
+        ],
+    );
+    commit_at(&repo, "2026-01-08T10:00:00Z", "login.txt", "3\n");
+    git(&repo, &["fetch", "--quiet", "--prune"]);
+    repo
+}
+
+fn find_branch<'a>(list: &'a Value, name: &str) -> &'a Value {
+    list["branches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["name"] == name)
+        .unwrap_or_else(|| panic!("no branch {name}"))
+}
+
+#[test]
+fn lists_switches_and_fetches_branches() {
+    let harness = Harness::new();
+    let repo = branch_repo(&harness);
+    let repo_id = harness.add(&repo);
+
+    let list = harness.ok("get_branches", json!({ "repoId": repo_id }));
+    assert_eq!(list["mainline"], "origin/development");
+    assert_eq!(list["mainlineExists"], true);
+    let feature = find_branch(&list, "feature/login-rate-limit");
+    assert_eq!(feature["current"], true);
+    assert_eq!(feature["mainline"], json!({ "ahead": 3, "behind": 0 }));
+    assert_eq!(
+        feature["upstream"],
+        json!({ "kind": "tracking", "name": "origin/feature/login-rate-limit", "counts": { "ahead": 1, "behind": 0 } })
+    );
+    assert_eq!(
+        find_branch(&list, "fix/header-overflow")["mainline"],
+        json!({ "ahead": 1, "behind": 2 })
+    );
+    assert_eq!(
+        find_branch(&list, "chore/old-cleanup")["upstream"]["kind"],
+        "gone"
+    );
+    assert_eq!(
+        find_branch(&list, "spike/local-only")["upstream"],
+        json!({ "kind": "none" })
+    );
+
+    let switched = harness.ok(
+        "switch_branch",
+        json!({ "repoId": repo_id, "branch": "development" }),
+    );
+    assert_eq!(find_branch(&switched, "development")["current"], true);
+
+    write(&repo, "app.txt", "local edit\n");
+    let refused = harness
+        .invoke(
+            "switch_branch",
+            json!({ "repoId": repo_id, "branch": "fix/header-overflow" }),
+        )
+        .unwrap_err();
+    assert_eq!(refused["kind"], "gitFailed");
+    assert_eq!(
+        refused["message"],
+        "Could not switch to fix/header-overflow."
+    );
+    assert!(refused["detail"].as_str().unwrap().contains("app.txt"));
+
+    let fetched = harness.ok("fetch_repo", json!({ "repoId": repo_id }));
+    assert!(fetched["lastFetched"].is_number());
+
+    let custom = harness.ok(
+        "set_mainline",
+        json!({ "repoId": repo_id, "mainline": "origin/fix/header-overflow" }),
+    );
+    assert_eq!(custom["repos"][0]["mainline"], "origin/fix/header-overflow");
+    let list = harness.ok("get_branches", json!({ "repoId": repo_id }));
+    assert_eq!(
+        find_branch(&list, "development")["mainline"],
+        json!({ "ahead": 2, "behind": 1 })
+    );
+    let reset = harness.ok(
+        "set_mainline",
+        json!({ "repoId": repo_id, "mainline": null }),
+    );
+    assert_eq!(reset["repos"][0]["mainline"], "origin/development");
+
+    let settings = harness.ok("set_fetch_interval", json!({ "minutes": 0 }));
+    assert_eq!(settings["settings"], json!({ "fetchIntervalMinutes": 0 }));
+}
+
+/// The branch list of [`branch_repo`]; `lastFetched` is cleared because it
+/// depends on when the test ran.
+fn record_branch_fixture() -> Value {
+    let harness = Harness::new();
+    let repo = branch_repo(&harness);
+    let repo_id = harness.add(&repo);
+    let mut list = harness.ok("get_branches", json!({ "repoId": repo_id }));
+    list["lastFetched"] = Value::Null;
+    list
+}
+
+#[test]
+#[ignore = "writes into the source tree; run with `pnpm fixtures`"]
+fn write_branch_fixtures() {
+    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ui/e2e/fixtures/branches.json");
+    let json = serde_json::to_string_pretty(&record_branch_fixture()).unwrap() + "\n";
+    std::fs::write(target, json).unwrap();
 }

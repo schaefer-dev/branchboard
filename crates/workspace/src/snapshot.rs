@@ -6,7 +6,7 @@ use git_core::{RepoSummary, StatusSnapshot};
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::registry::{Group, GroupId, Registry, RepoId};
+use crate::registry::{Group, GroupId, Registry, RepoId, Settings};
 
 /// Everything the frontend needs to render the repository list.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -16,6 +16,7 @@ pub struct WorkspaceSnapshot {
     pub repos: Vec<RepoView>,
     pub groups: Vec<Group>,
     pub active_repo_id: Option<RepoId>,
+    pub settings: Settings,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -29,6 +30,8 @@ pub struct RepoView {
     pub path: String,
     pub group_id: Option<GroupId>,
     pub favorite: bool,
+    /// The ref branches are compared with.
+    pub mainline: String,
     /// The folder was moved or deleted, or is no longer a repository.
     pub missing: bool,
 }
@@ -46,11 +49,13 @@ impl WorkspaceSnapshot {
                     path: repo.path.display().to_string(),
                     group_id: repo.group_id.clone(),
                     favorite: repo.favorite,
+                    mainline: repo.mainline().to_owned(),
                     missing: is_missing(&repo.path),
                 })
                 .collect(),
             groups: registry.groups.clone(),
             active_repo_id: registry.active_repo_id.clone(),
+            settings: registry.settings.clone(),
         }
     }
 }
@@ -86,4 +91,25 @@ pub enum SummaryState {
 pub struct StatusUpdate {
     pub repo_id: RepoId,
     pub status: StatusSnapshot,
+}
+
+/// Progress of a fetch of one repository.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct FetchUpdate {
+    pub repo_id: RepoId,
+    pub state: FetchState,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(tag = "status", rename_all = "camelCase")]
+#[ts(export)]
+pub enum FetchState {
+    Running,
+    Done,
+    Failed {
+        message: String,
+        detail: Option<String>,
+    },
 }

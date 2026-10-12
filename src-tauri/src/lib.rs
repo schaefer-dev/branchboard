@@ -11,6 +11,7 @@ mod state;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{Manager, Runtime, WindowEvent};
 use tracing_subscriber::EnvFilter;
@@ -18,6 +19,9 @@ use workspace::Workspace;
 
 use crate::events::TauriEvents;
 use crate::state::AppState;
+
+/// How often to check whether the repository on screen is due for a fetch.
+const BACKGROUND_FETCH_CHECK: Duration = Duration::from_secs(60);
 
 /// Settings that differ between the real app and tests.
 #[derive(Debug, Clone, Default)]
@@ -62,19 +66,34 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             // Discover git in the background so the window shows immediately.
             // The frontend requests the first summary refresh once it listens
             // for the results.
+            let discovery = state.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = state.git().await {
+                if let Err(error) = discovery.git().await {
                     tracing::warn!(?error, "git is not available");
+                }
+            });
+
+            // Checks once a minute whether a background fetch is due; the
+            // check itself is a file timestamp read.
+            tauri::async_runtime::spawn(async move {
+                let mut ticker = tokio::time::interval(BACKGROUND_FETCH_CHECK);
+                loop {
+                    ticker.tick().await;
+                    state.spawn_background_fetch();
                 }
             });
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let WindowEvent::Focused(true) = event {
+            if let WindowEvent::Focused(focused) = event {
                 let state = window.state::<AppState>();
-                state.workspace.refresh_status();
-                if state.take_focus_refresh() {
-                    state.spawn_summary_refresh(None);
+                state.set_focused(*focused);
+                if *focused {
+                    state.workspace.refresh_status();
+                    state.spawn_background_fetch();
+                    if state.take_focus_refresh() {
+                        state.spawn_summary_refresh(None);
+                    }
                 }
             }
         })
@@ -99,6 +118,11 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::stage_paths,
             commands::unstage_paths,
             commands::discard_paths,
+            commands::get_branches,
+            commands::switch_branch,
+            commands::fetch_repo,
+            commands::set_mainline,
+            commands::set_fetch_interval,
         ])
 }
 

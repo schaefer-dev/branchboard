@@ -15,6 +15,7 @@ function repo(id: string, name: string, groupId: string | null = null): RepoView
     path: `/code/${name}`,
     groupId,
     favorite: false,
+    mainline: "origin/development",
     missing: false,
   };
 }
@@ -23,6 +24,7 @@ const snapshot: WorkspaceSnapshot = {
   repos: [repo("1", "api", "g1"), repo("2", "web", "g1"), repo("3", "scratch")],
   groups: [{ id: "g1", name: "Work", collapsed: false }],
   activeRepoId: "2",
+  settings: { fetchIntervalMinutes: 10 },
 };
 
 function press(key: string) {

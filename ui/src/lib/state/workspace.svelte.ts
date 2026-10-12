@@ -14,7 +14,12 @@ import { buildSections, visibleRepos } from "./sections";
 
 /** The repository list, the active repository and per-repo summaries. */
 export class WorkspaceStore {
-  snapshot = $state<WorkspaceSnapshot>({ repos: [], groups: [], activeRepoId: null });
+  snapshot = $state<WorkspaceSnapshot>({
+    repos: [],
+    groups: [],
+    activeRepoId: null,
+    settings: { fetchIntervalMinutes: 10 },
+  });
   summaries = new SvelteMap<RepoId, SummaryState>();
   loaded = $state(false);
 

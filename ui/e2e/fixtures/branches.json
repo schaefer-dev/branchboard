@@ -1,0 +1,83 @@
+{
+  "branches": [
+    {
+      "committedAt": 1767348000,
+      "current": false,
+      "mainline": {
+        "ahead": 1,
+        "behind": 2
+      },
+      "name": "chore/old-cleanup",
+      "upstream": {
+        "kind": "gone",
+        "name": "origin/chore/old-cleanup"
+      }
+    },
+    {
+      "committedAt": 1767520800,
+      "current": false,
+      "mainline": {
+        "ahead": 0,
+        "behind": 0
+      },
+      "name": "development",
+      "upstream": {
+        "counts": {
+          "ahead": 0,
+          "behind": 0
+        },
+        "kind": "tracking",
+        "name": "origin/development"
+      }
+    },
+    {
+      "committedAt": 1767866400,
+      "current": true,
+      "mainline": {
+        "ahead": 3,
+        "behind": 0
+      },
+      "name": "feature/login-rate-limit",
+      "upstream": {
+        "counts": {
+          "ahead": 1,
+          "behind": 0
+        },
+        "kind": "tracking",
+        "name": "origin/feature/login-rate-limit"
+      }
+    },
+    {
+      "committedAt": 1767348000,
+      "current": false,
+      "mainline": {
+        "ahead": 1,
+        "behind": 2
+      },
+      "name": "fix/header-overflow",
+      "upstream": {
+        "counts": {
+          "ahead": 0,
+          "behind": 0
+        },
+        "kind": "tracking",
+        "name": "origin/fix/header-overflow"
+      }
+    },
+    {
+      "committedAt": 1767607200,
+      "current": false,
+      "mainline": {
+        "ahead": 1,
+        "behind": 0
+      },
+      "name": "spike/local-only",
+      "upstream": {
+        "kind": "none"
+      }
+    }
+  ],
+  "lastFetched": null,
+  "mainline": "origin/development",
+  "mainlineExists": true
+}
