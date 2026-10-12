@@ -12,6 +12,7 @@ node_modules/
 /src-tauri/gen/schemas/
 *.tsbuildinfo
 coverage/
+/e2e-results/
 
 # --- Secrets & credentials ------------------------------------------------------
 .env

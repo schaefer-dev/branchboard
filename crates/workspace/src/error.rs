@@ -23,6 +23,9 @@ pub enum WorkspaceError {
     #[error(transparent)]
     Git(#[from] GitError),
 
+    #[error("The files could not be moved to the trash.")]
+    Trash(String),
+
     #[error("Your repository list could not be saved.")]
     Save(#[source] std::io::Error),
 }

@@ -4,5 +4,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["ui/src/**/*.ts", "ui/src/**/*.svelte"]
+  "include": ["ui/src/**/*.ts", "ui/src/**/*.svelte", "ui/e2e/fake/**/*.ts"]
 }

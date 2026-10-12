@@ -61,5 +61,44 @@ jobs:
       - name: Frontend tests
         run: pnpm test
 
+      # The fixtures record real git output; one platform is the reference.
+      - name: E2E fixtures are up to date
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pnpm fixtures
+          if [ -n "$(git status --porcelain -- ui/e2e/fixtures)" ]; then
+            git diff -- ui/e2e/fixtures
+            echo "::error::E2E fixtures are stale. Run 'pnpm fixtures' and commit the result."
+            exit 1
+          fi
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium webkit
+
+      - name: UI end-to-end tests
+        run: pnpm e2e
+
+      - name: Upload E2E screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results-${{ matrix.os }}
+          path: e2e-results/
+          if-no-files-found: ignore
+
       - name: Build app
         run: pnpm tauri build --debug --no-bundle
+
+      # Full-stack smoke test of the real app. tauri-driver supports Windows
+      # (WebView2 via msedgedriver) but not macOS.
+      - name: Install tauri-driver
+        if: runner.os == 'Windows'
+        run: cargo install tauri-driver --locked --version 2.1.0
+
+      - name: Full-stack smoke test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:NATIVE_DRIVER = Join-Path $env:EDGEWEBDRIVER "msedgedriver.exe"
+          pnpm smoke

@@ -2,9 +2,15 @@
 //! IPC types and the core crates, nothing else. Every command needs a typed
 //! wrapper in `ui/src/lib/api/commands.ts`.
 
+#![allow(
+    clippy::needless_pass_by_value,
+    reason = "Tauri injects command arguments by value"
+)]
+
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Manager, State};
+use git_core::{DiffRequest, FileDiff, StatusSnapshot};
+use tauri::State;
 use workspace::{Added, GroupId, RepoId, WorkspaceSnapshot};
 
 use crate::dto::{AddRepoResult, AppInfo, GitInfo};
@@ -14,13 +20,9 @@ use crate::state::AppState;
 type CommandResult<T> = Result<T, AppError>;
 
 #[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "Tauri injects command arguments by value"
-)]
-pub fn get_app_info(app: AppHandle) -> AppInfo {
+pub fn get_app_info(state: State<'_, AppState>) -> AppInfo {
     AppInfo {
-        version: app.package_info().version.to_string(),
+        version: state.app_version.clone(),
     }
 }
 
@@ -39,18 +41,14 @@ pub async fn get_workspace(state: State<'_, AppState>) -> CommandResult<Workspac
 }
 
 #[tauri::command]
-pub async fn add_repo(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    path: PathBuf,
-) -> CommandResult<AddRepoResult> {
+pub async fn add_repo(state: State<'_, AppState>, path: PathBuf) -> CommandResult<AddRepoResult> {
     let git = state.git().await?;
     let (added, workspace) = state.workspace.add_repo(git, &path).await?;
     let (repo_id, already_added) = match added {
         Added::New(id) => (id, false),
         Added::Existing(id) => (id, true),
     };
-    spawn_summary_refresh(&app, Some(repo_id.clone()));
+    state.spawn_summary_refresh(Some(repo_id.clone()));
     Ok(AddRepoResult {
         workspace,
         repo_id,
@@ -60,14 +58,13 @@ pub async fn add_repo(
 
 #[tauri::command]
 pub async fn relocate_repo(
-    app: AppHandle,
     state: State<'_, AppState>,
     repo_id: RepoId,
     path: PathBuf,
 ) -> CommandResult<WorkspaceSnapshot> {
     let git = state.git().await?;
     let workspace = state.workspace.relocate_repo(git, &repo_id, &path).await?;
-    spawn_summary_refresh(&app, Some(repo_id));
+    state.spawn_summary_refresh(Some(repo_id));
     Ok(workspace)
 }
 
@@ -171,12 +168,59 @@ pub async fn set_group_collapsed(
 
 /// Refreshes all repository summaries; results arrive as events.
 #[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "Tauri injects command arguments by value"
-)]
-pub fn refresh_summaries(app: AppHandle) {
-    spawn_summary_refresh(&app, None);
+pub fn refresh_summaries(state: State<'_, AppState>) {
+    state.spawn_summary_refresh(None);
+}
+
+/// Status of a repository, which becomes the watched one.
+#[tauri::command]
+pub async fn get_status(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<StatusSnapshot> {
+    let git = state.git().await?;
+    Ok(state.workspace.status(git, &repo_id).await?)
+}
+
+#[tauri::command]
+pub async fn get_diff(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    request: DiffRequest,
+) -> CommandResult<FileDiff> {
+    let git = state.git().await?;
+    Ok(state.workspace.diff(git, &repo_id, &request).await?)
+}
+
+#[tauri::command]
+pub async fn stage_paths(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    paths: Vec<String>,
+) -> CommandResult<StatusSnapshot> {
+    let git = state.git().await?;
+    Ok(state.workspace.stage(git, &repo_id, &paths).await?)
+}
+
+#[tauri::command]
+pub async fn unstage_paths(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    paths: Vec<String>,
+) -> CommandResult<StatusSnapshot> {
+    let git = state.git().await?;
+    Ok(state.workspace.unstage(git, &repo_id, &paths).await?)
+}
+
+/// Discards unstaged changes; untracked files go to the trash.
+#[tauri::command]
+pub async fn discard_paths(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    paths: Vec<String>,
+) -> CommandResult<StatusSnapshot> {
+    let git = state.git().await?;
+    Ok(state.workspace.discard(git, &repo_id, &paths).await?)
 }
 
 async fn update(
@@ -185,14 +229,4 @@ async fn update(
 ) -> CommandResult<WorkspaceSnapshot> {
     let ((), snapshot) = state.workspace.update(change).await?;
     Ok(snapshot)
-}
-
-/// Starts a summary refresh in the background.
-pub fn spawn_summary_refresh(app: &AppHandle, only: Option<RepoId>) {
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        app.state::<AppState>()
-            .refresh_summaries(only.as_ref())
-            .await;
-    });
 }

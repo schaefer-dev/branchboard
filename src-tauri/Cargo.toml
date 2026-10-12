@@ -28,5 +28,11 @@ tracing-subscriber.workspace = true
 ts-rs.workspace = true
 workspace.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+tauri = { workspace = true, features = ["test"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["process", "macros", "rt"] }
+
 [lints]
 workspace = true

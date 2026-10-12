@@ -12,7 +12,7 @@
 
   let { tabs, selected = $bindable(), label }: Props = $props();
 
-  const buttons: HTMLButtonElement[] = [];
+  const buttons: HTMLButtonElement[] = $state([]);
 
   function onKeydown(event: KeyboardEvent, index: number) {
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;

@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { changes } from "../../lib/state/changes.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import Tabs from "../../lib/ui/Tabs.svelte";
+  import ChangesView from "../changes/ChangesView.svelte";
   import { locateRepo, removeRepo } from "../repos/repo-actions";
 
   type View = "changes" | "branches";
@@ -17,6 +19,10 @@
   const repo = $derived(workspace.activeRepo);
   const summary = $derived(repo ? workspace.summaries.get(repo.id) : undefined);
   const missing = $derived(repo !== null && (repo.missing || summary?.status === "missing"));
+
+  $effect(() => {
+    void changes.show(repo && !missing ? repo.id : null);
+  });
 </script>
 
 <section class="work" aria-label="Working copy">
@@ -41,8 +47,10 @@
           </button>
         </div>
       </div>
+    {:else if view === "changes"}
+      <ChangesView />
     {:else}
-      <EmptyState title={repo.name} hint="The {view} view arrives with the next milestone." />
+      <EmptyState title={repo.name} hint="Branches arrive with the next milestone." />
     {/if}
   </div>
 </section>
@@ -60,6 +68,10 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+  }
+
+  .body:has(:global(.changes)) {
+    overflow: hidden;
   }
 
   .actions {

@@ -4,18 +4,24 @@
 //! All interaction with git goes through the [`GitRunner`], which spawns the
 //! user's git executable with a fixed, safe set of global options.
 
+mod changes;
+mod diff;
 mod discovery;
 mod error;
 mod repository;
 mod runner;
+mod status;
 mod summary;
 mod version;
 
 use std::path::Path;
 
+pub use changes::{DiffArea, DiffRequest};
+pub use diff::{DiffHunk, DiffLimits, DiffLine, DiffLineKind, FileDiff};
 pub use discovery::DiscoveryOptions;
 pub use error::GitError;
 pub use runner::{GitCommand, GitOutput, GitRunner};
+pub use status::{ChangeKind, FileChange, StatusSnapshot};
 pub use summary::{Head, RepoSummary};
 pub use version::GitVersion;
 

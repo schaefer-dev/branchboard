@@ -1,33 +1,60 @@
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use git_core::{DiscoveryOptions, Git};
 use tokio::sync::OnceCell;
-use workspace::{RepoId, SummarySink, Workspace};
+use workspace::{RepoId, Workspace};
 
 use crate::error::AppError;
 
 /// Window focus refreshes all summaries, but at most this often.
 const FOCUS_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
 
-/// Application-wide state managed by Tauri.
-pub struct AppState {
-    git: OnceCell<Result<Git, AppError>>,
+/// Application-wide state managed by Tauri. Cheap to clone, so background
+/// tasks can own a handle.
+#[derive(Clone)]
+pub struct AppState(Arc<Inner>);
+
+pub struct Inner {
+    pub app_version: String,
     pub workspace: Workspace,
-    summaries: Arc<dyn SummarySink>,
+    git: OnceCell<Result<Git, AppError>>,
     last_focus_refresh: Mutex<Option<Instant>>,
 }
 
+impl Deref for AppState {
+    type Target = Inner;
+
+    fn deref(&self) -> &Inner {
+        &self.0
+    }
+}
+
 impl AppState {
-    pub fn new(workspace: Workspace, summaries: Arc<dyn SummarySink>) -> Self {
-        Self {
-            git: OnceCell::new(),
+    pub fn new(app_version: String, workspace: Workspace) -> Self {
+        Self(Arc::new(Inner {
+            app_version,
             workspace,
-            summaries,
+            git: OnceCell::new(),
             last_focus_refresh: Mutex::new(None),
-        }
+        }))
     }
 
+    /// Refreshes repository summaries (all, or only `only`) in the
+    /// background. Results arrive as `repo-summary` events.
+    pub fn spawn_summary_refresh(&self, only: Option<RepoId>) {
+        let state = self.clone();
+        tauri::async_runtime::spawn(async move {
+            match state.git().await {
+                Ok(git) => state.workspace.refresh_summaries(git, only.as_ref()).await,
+                Err(error) => tracing::debug!(?error, "skipping summary refresh without git"),
+            }
+        });
+    }
+}
+
+impl Inner {
     /// The git installation, discovered once on first access.
     pub async fn git(&self) -> Result<&Git, AppError> {
         self.git
@@ -39,19 +66,6 @@ impl AppState {
             .await
             .as_ref()
             .map_err(Clone::clone)
-    }
-
-    /// Refreshes repository summaries (all, or only `only`). Results arrive
-    /// as `repo-summary` events.
-    pub async fn refresh_summaries(&self, only: Option<&RepoId>) {
-        match self.git().await {
-            Ok(git) => {
-                self.workspace
-                    .refresh_summaries(git, only, &self.summaries)
-                    .await;
-            }
-            Err(error) => tracing::debug!(?error, "skipping summary refresh without git"),
-        }
     }
 
     /// Whether a focus-triggered refresh is due; records it if so.

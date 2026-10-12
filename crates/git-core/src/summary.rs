@@ -1,10 +1,11 @@
 //! A cheap per-repository overview: current HEAD and whether the working
-//! tree has changes. Parsed from `git status --porcelain=v2 --branch -z`.
+//! tree has changes.
 
 use serde::Serialize;
 use ts_rs::TS;
 
 use crate::GitError;
+use crate::status::parse_status;
 
 /// What `HEAD` points at.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -30,43 +31,30 @@ pub struct RepoSummary {
 
 const SHORT_OID_LEN: usize = 7;
 
-/// Parses the output of `git status --porcelain=v2 --branch -z`.
-pub fn parse_summary(raw: &[u8]) -> Result<RepoSummary, GitError> {
-    let mut oid = None;
-    let mut head = None;
-    let mut dirty = false;
-
-    for record in raw.split(|&byte| byte == 0) {
-        if let Some(header) = record.strip_prefix(b"# ") {
-            let header = String::from_utf8_lossy(header);
-            if let Some(value) = header.strip_prefix("branch.oid ") {
-                oid = Some(value.to_owned());
-            } else if let Some(value) = header.strip_prefix("branch.head ") {
-                head = Some(value.to_owned());
-            }
-        } else if !record.is_empty() {
-            // Any entry (changed, renamed, unmerged or untracked) makes the
-            // tree dirty. Rename entries are followed by a second record with
-            // the original path, which does not change the result.
-            dirty = true;
+impl Head {
+    /// Interprets the `branch.oid` and `branch.head` status headers.
+    pub(crate) fn from_status_headers(oid: &str, head: &str) -> Self {
+        match (oid, head) {
+            ("(initial)", name) => Self::Unborn {
+                name: name.to_owned(),
+            },
+            (oid, "(detached)") => Self::Detached {
+                oid: oid.chars().take(SHORT_OID_LEN).collect(),
+            },
+            (_, name) => Self::Branch {
+                name: name.to_owned(),
+            },
         }
     }
+}
 
-    let (Some(oid), Some(head)) = (oid, head) else {
-        return Err(GitError::Parse("status output lacks branch headers".into()));
-    };
-    let head = match (oid.as_str(), head.as_str()) {
-        ("(initial)", name) => Head::Unborn {
-            name: name.to_owned(),
-        },
-        (oid, "(detached)") => Head::Detached {
-            oid: oid.chars().take(SHORT_OID_LEN).collect(),
-        },
-        (_, name) => Head::Branch {
-            name: name.to_owned(),
-        },
-    };
-    Ok(RepoSummary { head, dirty })
+/// Parses the output of `git status --porcelain=v2 --branch -z`.
+pub fn parse_summary(raw: &[u8]) -> Result<RepoSummary, GitError> {
+    let status = parse_status(raw)?;
+    Ok(RepoSummary {
+        dirty: status.is_dirty(),
+        head: status.head,
+    })
 }
 
 #[cfg(test)]

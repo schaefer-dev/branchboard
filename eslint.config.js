@@ -4,7 +4,16 @@ import globals from "globals";
 import ts from "typescript-eslint";
 
 export default ts.config(
-  { ignores: ["dist/", "target/", "src-tauri/", "ui/src/lib/api/generated/"] },
+  {
+    ignores: [
+      "dist/",
+      "target/",
+      "src-tauri/",
+      "e2e-results/",
+      "ui/src/lib/api/generated/",
+      "ui/e2e/fixtures/",
+    ],
+  },
   js.configs.recommended,
   ...ts.configs.strictTypeChecked,
   ...svelte.configs.recommended,

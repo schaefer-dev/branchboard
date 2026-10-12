@@ -124,6 +124,11 @@
     outline: none;
   }
 
+  /* The open dialog already shows where focus is. */
+  .search:focus-visible {
+    box-shadow: none;
+  }
+
   ul {
     max-height: 360px;
     margin: 0;

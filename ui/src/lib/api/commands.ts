@@ -5,9 +5,12 @@
 import { call } from "./client";
 import type { AddRepoResult } from "./generated/AddRepoResult";
 import type { AppInfo } from "./generated/AppInfo";
+import type { DiffRequest } from "./generated/DiffRequest";
+import type { FileDiff } from "./generated/FileDiff";
 import type { GitInfo } from "./generated/GitInfo";
 import type { GroupId } from "./generated/GroupId";
 import type { RepoId } from "./generated/RepoId";
+import type { StatusSnapshot } from "./generated/StatusSnapshot";
 import type { WorkspaceSnapshot } from "./generated/WorkspaceSnapshot";
 
 export const api = {
@@ -34,4 +37,14 @@ export const api = {
   setGroupCollapsed: (groupId: GroupId, collapsed: boolean) =>
     call<WorkspaceSnapshot>("set_group_collapsed", { groupId, collapsed }),
   refreshSummaries: () => call<null>("refresh_summaries"),
+
+  getStatus: (repoId: RepoId) => call<StatusSnapshot>("get_status", { repoId }),
+  getDiff: (repoId: RepoId, request: DiffRequest) =>
+    call<FileDiff>("get_diff", { repoId, request }),
+  stagePaths: (repoId: RepoId, paths: string[]) =>
+    call<StatusSnapshot>("stage_paths", { repoId, paths }),
+  unstagePaths: (repoId: RepoId, paths: string[]) =>
+    call<StatusSnapshot>("unstage_paths", { repoId, paths }),
+  discardPaths: (repoId: RepoId, paths: string[]) =>
+    call<StatusSnapshot>("discard_paths", { repoId, paths }),
 } as const;

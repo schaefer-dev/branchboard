@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use git_core::RepoSummary;
+use git_core::{RepoSummary, StatusSnapshot};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -77,4 +77,13 @@ pub enum SummaryState {
     Ready { summary: RepoSummary },
     Missing,
     Failed { message: String },
+}
+
+/// New status of the watched repository.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct StatusUpdate {
+    pub repo_id: RepoId,
+    pub status: StatusSnapshot,
 }

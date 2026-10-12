@@ -6,6 +6,8 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use tokio::io::AsyncWriteExt;
+
 use crate::GitError;
 
 /// Options passed to every git invocation.
@@ -13,10 +15,13 @@ use crate::GitError;
 /// - `--no-optional-locks`: never take optional locks (e.g. the index refresh
 ///   in `git status`), so we do not race with editors like VS Code that poll
 ///   git in the background.
+/// - `--literal-pathspecs`: paths are always file names, never glob patterns
+///   (a file called `*.rs` must not match every Rust file).
 /// - `core.quotepath=false`: report non-ASCII paths verbatim.
 /// - `color.ui=never`: machine-readable output only.
 const GLOBAL_ARGS: &[&str] = &[
     "--no-optional-locks",
+    "--literal-pathspecs",
     "-c",
     "core.quotepath=false",
     "-c",
@@ -61,6 +66,7 @@ impl GitRunner {
                 .map(|arg| arg.as_ref().to_owned())
                 .collect(),
             cwd: None,
+            stdin: None,
             timeout: DEFAULT_TIMEOUT,
             success_codes: &[0],
         }
@@ -74,6 +80,7 @@ pub struct GitCommand<'a> {
     runner: &'a GitRunner,
     args: Vec<OsString>,
     cwd: Option<PathBuf>,
+    stdin: Option<Vec<u8>>,
     timeout: Duration,
     success_codes: &'static [i32],
 }
@@ -103,6 +110,28 @@ impl GitCommand<'_> {
         self
     }
 
+    /// Feeds `input` to git's standard input.
+    pub fn stdin(mut self, input: Vec<u8>) -> Self {
+        self.stdin = Some(input);
+        self
+    }
+
+    /// Passes `paths` via standard input (`--pathspec-from-file=-`), which
+    /// avoids command line length limits for long path lists.
+    pub fn pathspecs_from_stdin<I, S>(self, paths: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut input = Vec::new();
+        for path in paths {
+            input.extend_from_slice(path.as_ref().as_bytes());
+            input.push(0);
+        }
+        self.args(["--pathspec-from-file=-", "--pathspec-file-nul"])
+            .stdin(input)
+    }
+
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
@@ -124,7 +153,11 @@ impl GitCommand<'_> {
             .args(&self.args)
             .env("PATH", self.runner.search_path.as_os_str())
             .env("GIT_TERMINAL_PROMPT", "0")
-            .stdin(Stdio::null())
+            .stdin(if self.stdin.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
@@ -135,7 +168,16 @@ impl GitCommand<'_> {
         command.creation_flags(CREATE_NO_WINDOW);
 
         let started = Instant::now();
-        let child = command.spawn().map_err(GitError::Spawn)?;
+        let mut child = command.spawn().map_err(GitError::Spawn)?;
+        if let (Some(input), Some(mut pipe)) = (self.stdin.clone(), child.stdin.take()) {
+            // Written concurrently so a large input cannot deadlock against
+            // git filling its output pipes.
+            tokio::spawn(async move {
+                if let Err(error) = pipe.write_all(&input).await {
+                    tracing::warn!(%error, "failed to write git stdin");
+                }
+            });
+        }
         let output = tokio::time::timeout(self.timeout, child.wait_with_output())
             .await
             .map_err(|_| GitError::Timeout {

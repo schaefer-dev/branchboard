@@ -17,7 +17,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "fixtures": "cargo test -p branchboard --test ipc write_fixtures -- --ignored",
+    "smoke": "node --test ui/e2e/app/smoke.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.3",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tauri-apps/cli": "2.12.2",
     "@types/node": "24.19.2",

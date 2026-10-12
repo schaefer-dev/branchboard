@@ -11,6 +11,7 @@
   import WorkPane from "./features/shell/WorkPane.svelte";
   import { commands } from "./lib/commands";
   import { appInfo } from "./lib/state/app-info.svelte";
+  import { changes } from "./lib/state/changes.svelte";
   import { notices } from "./lib/state/notices.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
   import Notices from "./lib/ui/Notices.svelte";
@@ -21,7 +22,7 @@
 
   onMount(() => {
     void appInfo.load();
-    workspace.init().catch((error: unknown) => {
+    Promise.all([changes.init(), workspace.init()]).catch((error: unknown) => {
       notices.error(error);
     });
 

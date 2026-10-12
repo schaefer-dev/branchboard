@@ -10,17 +10,19 @@ publish.workspace = true
 [dependencies]
 dunce.workspace = true
 git-core.workspace = true
+notify.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["fs", "sync", "rt"] }
+tokio = { workspace = true, features = ["fs", "sync", "rt", "time"] }
 tracing.workspace = true
+trash.workspace = true
 ts-rs.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 
 [lints]
 workspace = true

@@ -34,11 +34,12 @@ list instead of your own.
 
 ```
 crates/git-core/   git domain types and CLI adapter (no Tauri dependency)
-crates/workspace/  repository registry, persistence, background summaries
+crates/workspace/  repository registry, persistence, status monitoring
 src-tauri/         Tauri shell: commands, state, wiring
 ui/src/            Svelte 5 frontend
   lib/api/         typed command wrappers and generated bindings
   lib/state/       stores (runes classes)
   lib/ui/          design tokens and base components
-  features/        feature components (repos, diff, shell, ...)
+  features/        feature components (repos, changes, diff, shell, ...)
+ui/e2e/            Playwright specs, fake backend and recorded fixtures
 ```

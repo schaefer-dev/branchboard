@@ -1,0 +1,381 @@
+{
+  "diffs": {
+    "staged:config.toml": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1,2 +1,2 @@",
+          "lines": [
+            {
+              "kind": "context",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "[server]"
+            },
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 2,
+              "text": "port = 8080"
+            },
+            {
+              "kind": "added",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "port = 9090"
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 3,
+      "notes": [],
+      "tooLarge": false
+    },
+    "staged:legacy-notes.txt": {
+      "additions": 0,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [],
+      "lineCount": 0,
+      "notes": [
+        "similarity index 100%",
+        "rename from legacy.txt",
+        "rename to legacy-notes.txt"
+      ],
+      "tooLarge": false
+    },
+    "unstaged:README.md": {
+      "additions": 0,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1 +0,0 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "# api"
+            }
+          ],
+          "newStart": 0,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "deleted file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "unstaged:assets/logo.png": {
+      "additions": 0,
+      "binary": true,
+      "deletions": 0,
+      "hunks": [],
+      "lineCount": 0,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "unstaged:config.toml": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -1,2 +1,3 @@",
+          "lines": [
+            {
+              "kind": "context",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "[server]"
+            },
+            {
+              "kind": "context",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": 2,
+              "text": "port = 9090"
+            },
+            {
+              "kind": "added",
+              "newLine": 3,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "host = \"0.0.0.0\""
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 3,
+      "notes": [],
+      "tooLarge": false
+    },
+    "unstaged:data/big.csv": {
+      "additions": 25000,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [],
+      "lineCount": 25000,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": true
+    },
+    "unstaged:notes.md": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "scratch"
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "unstaged:src/handlers/login.rs": {
+      "additions": 4,
+      "binary": false,
+      "deletions": 3,
+      "hunks": [
+        {
+          "header": "@@ -2,9 +2,10 @@ use std::collections::HashMap;",
+          "lines": [
+            {
+              "kind": "context",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": 2,
+              "text": ""
+            },
+            {
+              "kind": "context",
+              "newLine": 3,
+              "noNewline": false,
+              "oldLine": 3,
+              "text": "/// Handles login requests."
+            },
+            {
+              "kind": "context",
+              "newLine": 4,
+              "noNewline": false,
+              "oldLine": 4,
+              "text": "pub fn login(user: &str, password: &str) -> Result<Session, Error> {"
+            },
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 5,
+              "text": "    let users = load_users()?;"
+            },
+            {
+              "kind": "added",
+              "newLine": 5,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "    let users = load_users().context(\"loading users\")?;"
+            },
+            {
+              "kind": "added",
+              "newLine": 6,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "    tracing::debug!(user, \"login attempt\");"
+            },
+            {
+              "kind": "context",
+              "newLine": 7,
+              "noNewline": false,
+              "oldLine": 6,
+              "text": "    let Some(hash) = users.get(user) else {"
+            },
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 7,
+              "text": "        return Err(Error::UnknownUser);"
+            },
+            {
+              "kind": "added",
+              "newLine": 8,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "        return Err(Error::UnknownUser(user.to_owned()));"
+            },
+            {
+              "kind": "context",
+              "newLine": 9,
+              "noNewline": false,
+              "oldLine": 8,
+              "text": "    };"
+            },
+            {
+              "kind": "context",
+              "newLine": 10,
+              "noNewline": false,
+              "oldLine": 9,
+              "text": "    verify(hash, password)?;"
+            },
+            {
+              "kind": "context",
+              "newLine": 11,
+              "noNewline": false,
+              "oldLine": 10,
+              "text": "    Ok(Session::new(user))"
+            }
+          ],
+          "newStart": 2,
+          "oldStart": 2
+        },
+        {
+          "header": "@@ -38,7 +39,7 @@ pub fn login(user: &str, password: &str) -> Result<Session, Error> {",
+          "lines": [
+            {
+              "kind": "context",
+              "newLine": 39,
+              "noNewline": false,
+              "oldLine": 38,
+              "text": "// line 27"
+            },
+            {
+              "kind": "context",
+              "newLine": 40,
+              "noNewline": false,
+              "oldLine": 39,
+              "text": "// line 28"
+            },
+            {
+              "kind": "context",
+              "newLine": 41,
+              "noNewline": false,
+              "oldLine": 40,
+              "text": "// line 29"
+            },
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 41,
+              "text": "// line 30"
+            },
+            {
+              "kind": "added",
+              "newLine": 42,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "// line 30 (changed)"
+            },
+            {
+              "kind": "context",
+              "newLine": 43,
+              "noNewline": false,
+              "oldLine": 42,
+              "text": "// line 31"
+            },
+            {
+              "kind": "context",
+              "newLine": 44,
+              "noNewline": false,
+              "oldLine": 43,
+              "text": "// line 32"
+            },
+            {
+              "kind": "context",
+              "newLine": 45,
+              "noNewline": false,
+              "oldLine": 44,
+              "text": "// line 33"
+            }
+          ],
+          "newStart": 39,
+          "oldStart": 38
+        }
+      ],
+      "lineCount": 20,
+      "notes": [],
+      "tooLarge": false
+    }
+  },
+  "status": {
+    "head": {
+      "kind": "branch",
+      "name": "development"
+    },
+    "staged": [
+      {
+        "kind": "modified",
+        "origPath": null,
+        "path": "config.toml"
+      },
+      {
+        "kind": "renamed",
+        "origPath": "legacy.txt",
+        "path": "legacy-notes.txt"
+      }
+    ],
+    "unstaged": [
+      {
+        "kind": "deleted",
+        "origPath": null,
+        "path": "README.md"
+      },
+      {
+        "kind": "modified",
+        "origPath": null,
+        "path": "config.toml"
+      },
+      {
+        "kind": "modified",
+        "origPath": null,
+        "path": "src/handlers/login.rs"
+      },
+      {
+        "kind": "untracked",
+        "origPath": null,
+        "path": "assets/logo.png"
+      },
+      {
+        "kind": "untracked",
+        "origPath": null,
+        "path": "data/big.csv"
+      },
+      {
+        "kind": "untracked",
+        "origPath": null,
+        "path": "notes.md"
+      }
+    ]
+  }
+}

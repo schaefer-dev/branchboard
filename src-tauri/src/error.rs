@@ -108,6 +108,7 @@ impl From<WorkspaceError> for AppError {
             | WorkspaceError::DuplicateGroup(_)
             | WorkspaceError::AlreadyRegistered(_) => Self::new(Kind::InvalidInput, message, None),
             WorkspaceError::Save(source) => Self::new(Kind::Io, message, Some(source.to_string())),
+            WorkspaceError::Trash(detail) => Self::new(Kind::Io, message, Some(detail)),
         }
     }
 }
