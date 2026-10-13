@@ -94,6 +94,11 @@ export class Driver extends OwnedProcess {
   ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     let lastError = "no response";
+    let responseError = "";
+    const invalid = (message: string): never => {
+      responseError = message;
+      throw new Error(message);
+    };
     const poll = async () => {
       while (Date.now() < deadline) {
         if (this.problem) throw this.problem;
@@ -104,16 +109,23 @@ export class Driver extends OwnedProcess {
             ),
           });
           const text = await response.text();
-          if (!response.ok) throw new Error(`HTTP ${String(response.status)}: ${text}`);
-          const body = JSON.parse(text) as { value?: { ready?: boolean } };
-          if (body.value?.ready === true) return;
-          lastError = `driver not ready: ${text}`;
+          if (!response.ok) invalid(`HTTP ${String(response.status)}: ${text}`);
+          let body: { value?: { ready?: boolean } } | null = null;
+          try {
+            body = JSON.parse(text) as { value?: { ready?: boolean } } | null;
+          } catch {
+            invalid(`invalid JSON (HTTP ${String(response.status)}): ${text}`);
+          }
+          if (body?.value?.ready === true) return;
+          responseError = lastError = `driver not ready: ${text}`;
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
         }
         await delay(Math.min(pollMs, Math.max(0, deadline - Date.now())));
       }
-      throw new Error(`Driver readiness timed out after ${String(timeoutMs)}ms: ${lastError}`);
+      throw new Error(
+        `Driver readiness timed out after ${String(timeoutMs)}ms: ${lastError}${responseError && responseError !== lastError ? `; last invalid response: ${responseError}` : ""}`,
+      );
     };
     await this.guard(poll());
   }

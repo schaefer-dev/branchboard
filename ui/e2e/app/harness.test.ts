@@ -37,6 +37,32 @@ function driver(t: TestContext, code = "setInterval(() => {}, 1000)"): Driver {
   return process;
 }
 
+const MOCK_BASE = "http://mock-driver";
+const MOCK_TIMEOUT_MS = 10_000;
+
+/** Exhaust the fixtures with a timeout at the deadline, without racing real HTTP or timers. */
+function responsesThenTimeout(
+  t: TestContext,
+  responses: readonly { path: string; body: string; status?: number }[],
+): () => void {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 });
+  let attempts = 0;
+  t.mock.method(globalThis, "fetch", (input: string | URL | Request) => {
+    const response = responses[attempts++];
+    if (response) {
+      assert.equal(input, `${MOCK_BASE}${response.path}`);
+      return Promise.resolve(new Response(response.body, { status: response.status ?? 200 }));
+    }
+    t.mock.timers.setTime(MOCK_TIMEOUT_MS);
+    return Promise.reject(
+      new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+    );
+  });
+  return () => {
+    assert.equal(attempts, responses.length + 1);
+  };
+}
+
 void test("readiness waits for a successful ready response", async (t) => {
   let attempts = 0;
   const base = await server(t, (_request, response) => {
@@ -55,14 +81,53 @@ void test("readiness waits for a successful ready response", async (t) => {
 
 for (const [name, status, body, message] of [
   ["HTTP error", 500, "native driver unavailable", /HTTP 500: native driver unavailable/],
-  ["malformed response", 200, "not JSON", /JSON/],
+  ["malformed response", 200, "not JSON", /invalid JSON \(HTTP 200\): not JSON/],
   ["not ready", 200, '{"value":{"ready":false}}', /driver not ready/],
 ] as const) {
-  void test(`readiness rejects ${name} with diagnostic context`, async (t) => {
-    const base = await server(t, (_request, response) => response.writeHead(status).end(body));
-    await assert.rejects(driver(t).waitReady(base, { timeoutMs: 150, pollMs: 10 }), message);
+  void test(`readiness retains ${name} after a later request timeout`, async (t) => {
+    const consumed = responsesThenTimeout(t, [{ path: "/status", status, body }]);
+    await assert.rejects(
+      driver(t).waitReady(MOCK_BASE, { timeoutMs: MOCK_TIMEOUT_MS, pollMs: 0 }),
+      (error: Error) => {
+        assert.match(error.message, message);
+        assert.match(error.message, /The operation was aborted due to timeout/);
+        return true;
+      },
+    );
+    consumed();
   });
 }
+
+void test("readiness retains the latest response diagnostic", async (t) => {
+  const consumed = responsesThenTimeout(t, [
+    { path: "/status", status: 500, body: "old failure" },
+    { path: "/status", status: 503, body: "current failure" },
+  ]);
+  await assert.rejects(
+    driver(t).waitReady(MOCK_BASE, { timeoutMs: MOCK_TIMEOUT_MS, pollMs: 0 }),
+    (error: Error) => {
+      assert.match(error.message, /HTTP 503: current failure/);
+      assert.doesNotMatch(error.message, /old failure/);
+      return true;
+    },
+  );
+  consumed();
+});
+
+void test("readiness reports transport-only failures without a response diagnostic", async (t) => {
+  const consumed = responsesThenTimeout(t, []);
+  await assert.rejects(
+    driver(t).waitReady(MOCK_BASE, { timeoutMs: MOCK_TIMEOUT_MS, pollMs: 0 }),
+    (error: Error) => {
+      assert.equal(
+        error.message,
+        `Driver readiness timed out after ${String(MOCK_TIMEOUT_MS)}ms: The operation was aborted due to timeout`,
+      );
+      return true;
+    },
+  );
+  consumed();
+});
 
 void test("readiness bounds stalled HTTP requests", async (t) => {
   const base = await server(t, () => undefined);
@@ -202,21 +267,45 @@ void test("debugging readiness waits for both version and a page target", async 
   assert.ok(records.includes("version") && records.includes("list"));
 });
 
-for (const [name, versionBody, listBody, expected] of [
-  ["malformed version", "not JSON", pages, /version: malformed JSON/],
-  ["incomplete version", "{}", pages, /version: missing Browser/],
-  ["malformed targets", version, "not JSON", /list: malformed JSON/],
-  ["missing page", version, '[{"type":"service_worker"}]', /no valid page target/],
-  ["incomplete page", version, '[{"type":"page"}]', /no valid page target/],
+for (const [name, responses, expected] of [
+  ["malformed version", [{ path: "/json/version", body: "not JSON" }], /version: malformed JSON/],
+  ["incomplete version", [{ path: "/json/version", body: "{}" }], /version: missing Browser/],
+  [
+    "malformed targets",
+    [
+      { path: "/json/version", body: version },
+      { path: "/json/list", body: "not JSON" },
+    ],
+    /list: malformed JSON/,
+  ],
+  [
+    "missing page",
+    [
+      { path: "/json/version", body: version },
+      { path: "/json/list", body: '[{"type":"service_worker"}]' },
+    ],
+    /no valid page target/,
+  ],
+  [
+    "incomplete page",
+    [
+      { path: "/json/version", body: version },
+      { path: "/json/list", body: '[{"type":"page"}]' },
+    ],
+    /no valid page target/,
+  ],
 ] as const) {
-  void test(`debugging readiness diagnoses ${name}`, async (t) => {
-    const base = await server(t, (request, response) =>
-      response.end(request.url === "/json/version" ? versionBody : listBody),
-    );
+  void test(`debugging readiness retains ${name} after a later request timeout`, async (t) => {
+    const consumed = responsesThenTimeout(t, responses);
     await assert.rejects(
-      waitDebuggingReady(driver(t), base, { timeoutMs: 150, pollMs: 10 }),
-      expected,
+      waitDebuggingReady(driver(t), MOCK_BASE, { timeoutMs: MOCK_TIMEOUT_MS, pollMs: 0 }),
+      (error: Error) => {
+        assert.match(error.message, expected);
+        assert.match(error.message, /The operation was aborted due to timeout/);
+        return true;
+      },
     );
+    consumed();
   });
 }
 
