@@ -1,9 +1,9 @@
 # Branchboard
 
+![Branchboard — a charcoal banner with a sculptural Git branching motif in off-white and amber](assets/readme-hero.png)
+
 A lean Git GUI for macOS and Windows, built for working across multiple repositories.
 Switch projects, review diffs, stage files, and see where your branches stand at a glance.
-
-![Branchboard in dark mode, showing grouped repositories, staged and unstaged files, and a syntax-highlighted diff](assets/readme-hero.png)
 
 Branchboard handles the overview and review loop. Keep committing in your editor or terminal.
 Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI.
@@ -20,6 +20,8 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
 - **Stay on the keyboard.** Use the command palette and shortcuts to navigate, fetch, or open
   a repository or changed file in VS Code.
 - **Light and dark themes.** The interface follows your system appearance.
+
+![Branchboard in dark mode, showing grouped repositories, staged and unstaged files, and a syntax-highlighted diff](assets/readme-screenshot.png)
 
 ## Getting started
 
