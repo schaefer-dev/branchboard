@@ -56,4 +56,25 @@ describe("CommandRegistry", () => {
     unregister();
     expect(registry.handleKeydown(event)).toBe(false);
   });
+
+  it("skips commands that do not apply", () => {
+    const registry = new CommandRegistry(false);
+    let enabled = false;
+    const run = vi.fn();
+    registry.register({
+      id: "a",
+      title: "A",
+      shortcut: { key: "k", mod: true },
+      enabled: () => enabled,
+      run,
+    });
+    registry.register({ id: "b", title: "B", run });
+
+    expect(registry.available().map((command) => command.id)).toEqual(["b"]);
+    expect(registry.handleKeydown(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))).toBe(
+      false,
+    );
+    enabled = true;
+    expect(registry.available().map((command) => command.id)).toEqual(["a", "b"]);
+  });
 });

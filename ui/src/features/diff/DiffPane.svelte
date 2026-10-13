@@ -2,6 +2,8 @@
   import { changes } from "../../lib/state/changes.svelte";
   import { splitPath } from "../../lib/state/changes-model";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
+  import Icon from "../../lib/ui/Icon.svelte";
+  import { openChangeInEditor } from "../editor/open-in-editor";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import DiffView from "./DiffView.svelte";
 
@@ -28,6 +30,15 @@
           <span class="deletions">−{formatter.format(diff.deletions)}</span>
         </span>
       {/if}
+      <button
+        type="button"
+        class="icon-btn"
+        title="Open in VS Code"
+        aria-label="Open in VS Code"
+        onclick={() => void openChangeInEditor(item)}
+      >
+        <Icon name="external" />
+      </button>
     {/if}
   </PaneHeader>
 

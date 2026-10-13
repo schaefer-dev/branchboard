@@ -14,6 +14,8 @@ export interface Command {
   id: string;
   title: string;
   shortcut?: Shortcut;
+  /** Whether the command applies right now; defaults to always. */
+  enabled?: () => boolean;
   run: () => unknown;
 }
 
@@ -61,6 +63,11 @@ export class CommandRegistry {
     return [...this.commands.values()];
   }
 
+  /** Commands that apply right now, in registration order. */
+  available(): Command[] {
+    return this.list().filter((command) => command.enabled?.() ?? true);
+  }
+
   shortcutLabel(id: string): string | null {
     const shortcut = this.commands.get(id)?.shortcut;
     return shortcut ? formatShortcut(shortcut, this.mac) : null;
@@ -79,6 +86,7 @@ export class CommandRegistry {
       const { shortcut } = command;
       if (!shortcut || (typing && !shortcut.mod)) continue;
       if (matchesShortcut(shortcut, event, this.mac)) {
+        if (!(command.enabled?.() ?? true)) return false;
         event.preventDefault();
         void command.run();
         return true;

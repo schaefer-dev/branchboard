@@ -232,6 +232,21 @@ pub async fn get_branches(
     Ok(state.workspace.branches(git, &repo_id).await?)
 }
 
+/// Opens the repository, or one of its files at `line`, in the editor.
+#[tauri::command]
+pub async fn open_in_editor(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    path: Option<String>,
+    line: Option<u32>,
+) -> CommandResult<()> {
+    let editor = state.editor().await?;
+    Ok(state
+        .workspace
+        .open_in_editor(&editor, &repo_id, path.as_deref(), line)
+        .await?)
+}
+
 #[tauri::command]
 pub async fn get_branch_commits(
     state: State<'_, AppState>,

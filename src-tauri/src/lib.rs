@@ -28,6 +28,8 @@ const BACKGROUND_FETCH_CHECK: Duration = Duration::from_secs(60);
 pub struct AppOptions {
     /// Repository list to use instead of the one in the app config directory.
     pub workspace_file: Option<PathBuf>,
+    /// Editor command to use instead of the detected VS Code launcher.
+    pub editor: Option<PathBuf>,
 }
 
 /// Starts the application and blocks until it exits.
@@ -41,6 +43,7 @@ pub fn run() {
     // separate repository list.
     let options = AppOptions {
         workspace_file: std::env::var_os("BRANCHBOARD_WORKSPACE_FILE").map(PathBuf::from),
+        editor: std::env::var_os("BRANCHBOARD_EDITOR").map(PathBuf::from),
     };
     build(tauri::Builder::default(), options)
         .run(tauri::generate_context!())
@@ -60,7 +63,11 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             tracing::info!(file = %file.display(), "opening workspace");
             let events = Arc::new(TauriEvents(app.handle().clone()));
             let version = app.package_info().version.to_string();
-            let state = AppState::new(version, Workspace::open(file, events));
+            let state = AppState::new(
+                version,
+                Workspace::open(file, events),
+                options.editor.clone(),
+            );
             app.manage(state.clone());
 
             // Discover git in the background so the window shows immediately.
@@ -118,6 +125,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::stage_paths,
             commands::unstage_paths,
             commands::discard_paths,
+            commands::open_in_editor,
             commands::get_branches,
             commands::get_branch_commits,
             commands::switch_branch,

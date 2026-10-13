@@ -7,6 +7,7 @@ import {
   expect,
   expectCall,
   menu,
+  mod,
   openApp,
   test,
 } from "./helpers";
@@ -99,7 +100,7 @@ test.describe("changes and diffs", () => {
 
   test("unstages from the context menu", async ({ page }) => {
     await row(page, "staged:config.toml").click({ button: "right" });
-    await expect.poll(() => menu(page)).toEqual(["Unstage"]);
+    await expect.poll(() => menu(page)).toEqual(["Open in VS Code", "Unstage"]);
     await clickMenu(page, "Unstage");
     await expectCall(page, "unstage_paths", { repoId: "api", paths: ["config.toml"] });
   });
@@ -131,6 +132,21 @@ test.describe("changes and diffs", () => {
       changesList(page).getByRole("button", { name: "Stage all", exact: true }),
     ).toHaveCount(0);
     await expect(changesList(page).locator('[data-key^="unstaged:"]')).toHaveCount(0);
+  });
+
+  test("opens the selected file in VS Code at the first change", async ({ page }) => {
+    await select(page, "unstaged:src/handlers/login.rs");
+    await expect(diffPane(page).locator(".hunk")).toHaveCount(2);
+    await page.keyboard.press(`${await mod(page)}+Shift+e`);
+    await expectCall(page, "open_in_editor", {
+      repoId: "api",
+      path: "src/handlers/login.rs",
+      line: 5,
+    });
+
+    await select(page, "unstaged:README.md");
+    await diffPane(page).getByRole("button", { name: "Open in VS Code" }).click();
+    await expectCall(page, "open_in_editor", { repoId: "api", path: null, line: null });
   });
 
   test("follows changes made outside the app", async ({ page }) => {

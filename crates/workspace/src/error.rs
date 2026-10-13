@@ -23,6 +23,14 @@ pub enum WorkspaceError {
     #[error(transparent)]
     Git(#[from] GitError),
 
+    #[error(
+        "VS Code was not found. In VS Code, run \"Shell Command: Install 'code' command in PATH\"."
+    )]
+    EditorNotFound,
+
+    #[error("The editor could not be started.")]
+    Editor(String),
+
     #[error("The files could not be moved to the trash.")]
     Trash(String),
 

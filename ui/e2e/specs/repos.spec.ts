@@ -54,6 +54,7 @@ test.describe("repository sidebar", () => {
     await expect
       .poll(() => menu(page))
       .toEqual([
+        "Open in VS Code",
         "Rename…",
         "Add to favorites",
         "Move to group",
@@ -136,5 +137,39 @@ test.describe("adding repositories", () => {
     await page.evaluate(() => window.__fake.drop(["/home/dev/code/dropped"]));
     await expectCall(page, "add_repo", { path: "/home/dev/code/dropped" });
     await expect(sidebar(page).getByText("dropped")).toBeVisible();
+  });
+});
+
+test.describe("command palette", () => {
+  test("lists applicable commands with shortcuts and runs them", async ({ page }) => {
+    await openApp(page);
+    await page.keyboard.press(`${await mod(page)}+k`);
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await expect(palette).toBeVisible();
+    await expect(palette.getByRole("option", { name: /Open in VS Code/ })).toContainText(/E/);
+
+    await page.keyboard.type("stage all");
+    await expect(palette.getByRole("option").first()).toContainText("Stage all changes");
+    await page.keyboard.press("Enter");
+    await expect(palette).toBeHidden();
+    await expectCall(page, "stage_paths", {
+      repoId: "api",
+      paths: [
+        "README.md",
+        "config.toml",
+        "src/handlers/login.rs",
+        "assets/logo.png",
+        "data/big.csv",
+        "notes.md",
+      ],
+    });
+  });
+
+  test("hides commands that do not apply", async ({ page }) => {
+    await openApp(page, "empty");
+    await page.keyboard.press(`${await mod(page)}+k`);
+    const options = page.getByRole("dialog", { name: "Command palette" }).getByRole("option");
+    await expect(options.filter({ hasText: "Add repositories…" })).toHaveCount(1);
+    await expect(options.filter({ hasText: "Fetch" })).toHaveCount(0);
   });
 });

@@ -4,6 +4,7 @@ import { confirmDestructive } from "../../lib/platform/dialogs";
 import { showContextMenu } from "../../lib/platform/menu";
 import { changes } from "../../lib/state/changes.svelte";
 import type { ChangeItem } from "../../lib/state/changes-model";
+import { openChangeInEditor } from "../editor/open-in-editor";
 
 const count = (n: number) => (n === 1 ? "1 file" : `${String(n)} files`);
 
@@ -32,7 +33,18 @@ export function showChangeMenu(items: ChangeItem[]): Promise<void> {
   if (!area) return Promise.resolve();
   const paths = items.map((item) => item.change.path);
   const label = items.length === 1 ? "" : ` ${count(items.length)}`;
+  const single = items.length === 1 ? items[0] : undefined;
   return showContextMenu([
+    ...(single
+      ? [
+          {
+            kind: "item",
+            text: "Open in VS Code",
+            run: () => void openChangeInEditor(single),
+          } as const,
+          { kind: "separator" } as const,
+        ]
+      : []),
     area === "staged"
       ? { kind: "item", text: `Unstage${label}`, run: () => void changes.unstage(paths) }
       : { kind: "item", text: `Stage${label}`, run: () => void changes.stage(paths) },

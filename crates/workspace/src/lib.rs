@@ -2,6 +2,7 @@
 //! summaries and the live status of the repository on screen. Independent of
 //! Tauri; events leave through [`EventSink`].
 
+mod editor;
 mod error;
 mod monitor;
 mod registry;
@@ -19,6 +20,7 @@ use git_core::{
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task::JoinSet;
 
+pub use editor::Editor;
 pub use error::WorkspaceError;
 pub use registry::{
     Added, DEFAULT_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId, Settings,
@@ -235,6 +237,19 @@ impl Workspace {
     pub async fn branches(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
         let (path, mainline) = self.repo_path_and_mainline(id).await?;
         Ok(git.branches(&path, &mainline).await?)
+    }
+
+    /// Opens the repository, or one of its files at `line`, in the editor.
+    pub async fn open_in_editor(
+        &self,
+        editor: &Editor,
+        id: &RepoId,
+        file: Option<&str>,
+        line: Option<u32>,
+    ) -> Result<(), WorkspaceError> {
+        let root = self.repo_path(id).await?;
+        let file = file.map(|relative| join_relative(&root, relative));
+        editor.open(&root, file.as_deref().map(|path| (path, line)))
     }
 
     /// Commits `branch` is ahead of and behind the mainline.

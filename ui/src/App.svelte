@@ -7,20 +7,22 @@
   import DropOverlay from "./features/repos/DropOverlay.svelte";
   import QuickSwitcher from "./features/repos/QuickSwitcher.svelte";
   import RepoSidebar from "./features/repos/RepoSidebar.svelte";
-  import { addRepositories } from "./features/repos/repo-actions";
+  import { registerAppCommands } from "./features/shell/app-commands";
+  import CommandPalette from "./features/shell/CommandPalette.svelte";
   import StatusBar from "./features/shell/StatusBar.svelte";
   import WorkPane from "./features/shell/WorkPane.svelte";
   import { commands } from "./lib/commands";
   import { appInfo } from "./lib/state/app-info.svelte";
   import { branches } from "./lib/state/branches.svelte";
-  import { view } from "./lib/state/view.svelte";
   import { changes } from "./lib/state/changes.svelte";
   import { notices } from "./lib/state/notices.svelte";
+  import { view } from "./lib/state/view.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
   import Notices from "./lib/ui/Notices.svelte";
   import PromptDialog from "./lib/ui/PromptDialog.svelte";
 
   let switcherOpen = $state(false);
+  let paletteOpen = $state(false);
   let dragging = $state(false);
 
   onMount(() => {
@@ -29,38 +31,10 @@
       notices.error(error);
     });
 
-    const unregister = [
-      commands.register({
-        id: "repo.add",
-        title: "Add repositories…",
-        shortcut: { key: "o", mod: true },
-        run: addRepositories,
-      }),
-      commands.register({
-        id: "view.changes",
-        title: "Show changes",
-        shortcut: { key: "1", mod: true },
-        run: () => (view.work = "changes"),
-      }),
-      commands.register({
-        id: "view.branches",
-        title: "Show branches",
-        shortcut: { key: "2", mod: true },
-        run: () => (view.work = "branches"),
-      }),
-      commands.register({
-        id: "repo.fetch",
-        title: "Fetch",
-        shortcut: { key: "f", mod: true, shift: true },
-        run: () => branches.fetch(),
-      }),
-      commands.register({
-        id: "repo.switch",
-        title: "Switch repository…",
-        shortcut: { key: "p", mod: true },
-        run: () => (switcherOpen = true),
-      }),
-    ];
+    const unregister = registerAppCommands({
+      openSwitcher: () => (switcherOpen = true),
+      openPalette: () => (paletteOpen = true),
+    });
 
     const unlistenDrop = getCurrentWebview().onDragDropEvent((event) => {
       const { payload } = event;
@@ -73,7 +47,7 @@
     });
 
     return () => {
-      for (const fn of unregister) fn();
+      unregister();
       void unlistenDrop.then((fn) => {
         fn();
       });
@@ -114,6 +88,7 @@
 </div>
 
 <QuickSwitcher bind:open={switcherOpen} />
+<CommandPalette bind:open={paletteOpen} />
 <PromptDialog />
 <Notices />
 <DropOverlay visible={dragging} />

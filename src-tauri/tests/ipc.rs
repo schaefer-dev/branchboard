@@ -20,9 +20,14 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
+        Self::with_editor(None)
+    }
+
+    fn with_editor(editor: Option<PathBuf>) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let options = AppOptions {
             workspace_file: Some(dir.path().join("workspace.json")),
+            editor,
         };
         // The app's real context, so the real capabilities (ACL) apply.
         let mut app = build(mock_builder(), options)
@@ -662,4 +667,46 @@ fn write_branch_fixtures() {
     let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ui/e2e/fixtures/branches.json");
     let json = serde_json::to_string_pretty(&record_branch_fixture()).unwrap() + "\n";
     std::fs::write(target, json).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn opens_files_in_the_editor() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let scripts = tempfile::tempdir().unwrap();
+    let log = scripts.path().join("args.txt");
+    let editor = scripts.path().join("editor.sh");
+    std::fs::write(
+        &editor,
+        format!("#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\n", log.display()),
+    )
+    .unwrap();
+    std::fs::set_permissions(&editor, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let harness = Harness::with_editor(Some(editor));
+    let repo = harness.repo("api");
+    let repo_id = harness.add(&repo);
+    let result = harness.ok(
+        "open_in_editor",
+        json!({ "repoId": repo_id, "path": "src/main.rs", "line": 12 }),
+    );
+    assert_eq!(result, Value::Null);
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !log.exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "editor was not started"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let args = std::fs::read_to_string(&log).unwrap();
+    let expected = format!(
+        "{}\n--goto\n{}:12\n",
+        repo.display(),
+        repo.join("src").join("main.rs").display()
+    );
+    assert_eq!(args, expected);
 }

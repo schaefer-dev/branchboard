@@ -53,6 +53,12 @@ impl GitRunner {
         &self.program
     }
 
+    /// The `PATH` git runs with (the login shell's on macOS), also useful to
+    /// find other tools the user installed.
+    pub fn search_path(&self) -> &OsStr {
+        &self.search_path
+    }
+
     /// Starts building a git invocation with the given arguments.
     pub fn command<I, S>(&self, args: I) -> GitCommand<'_>
     where

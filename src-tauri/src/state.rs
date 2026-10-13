@@ -4,8 +4,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use git_core::{DiscoveryOptions, Git};
+use std::path::PathBuf;
 use tokio::sync::OnceCell;
-use workspace::{RepoId, Workspace};
+
+use workspace::{Editor, RepoId, Workspace, WorkspaceError};
 
 use crate::error::AppError;
 
@@ -24,6 +26,7 @@ pub struct Inner {
     last_focus_refresh: Mutex<Option<Instant>>,
     /// Background fetches only happen while the window has focus.
     focused: AtomicBool,
+    editor_override: Option<PathBuf>,
 }
 
 impl Deref for AppState {
@@ -35,13 +38,18 @@ impl Deref for AppState {
 }
 
 impl AppState {
-    pub fn new(app_version: String, workspace: Workspace) -> Self {
+    pub fn new(
+        app_version: String,
+        workspace: Workspace,
+        editor_override: Option<PathBuf>,
+    ) -> Self {
         Self(Arc::new(Inner {
             app_version,
             workspace,
             git: OnceCell::new(),
             last_focus_refresh: Mutex::new(None),
             focused: AtomicBool::new(true),
+            editor_override,
         }))
     }
 
@@ -94,6 +102,17 @@ impl Inner {
             .await
             .as_ref()
             .map_err(Clone::clone)
+    }
+
+    /// The editor to open files in: the override, or VS Code found on the
+    /// same search path as git.
+    pub async fn editor(&self) -> Result<Editor, AppError> {
+        if let Some(program) = &self.editor_override {
+            return Ok(Editor::custom(program.clone()));
+        }
+        let git = self.git().await?;
+        Editor::detect(git.runner().search_path())
+            .ok_or_else(|| WorkspaceError::EditorNotFound.into())
     }
 
     /// Whether a focus-triggered refresh is due; records it if so.

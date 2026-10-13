@@ -50,6 +50,9 @@ export const api = {
   discardPaths: (repoId: RepoId, paths: string[]) =>
     call<StatusSnapshot>("discard_paths", { repoId, paths }),
 
+  openInEditor: (repoId: RepoId, path: string | null, line: number | null) =>
+    call<null>("open_in_editor", { repoId, path, line }),
+
   getBranches: (repoId: RepoId) => call<BranchList>("get_branches", { repoId }),
   getBranchCommits: (repoId: RepoId, branch: string) =>
     call<BranchCommits>("get_branch_commits", { repoId, branch }),

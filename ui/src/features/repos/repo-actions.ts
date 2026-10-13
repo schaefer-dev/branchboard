@@ -7,6 +7,7 @@ import { showContextMenu, type MenuEntry } from "../../lib/platform/menu";
 import { workspace } from "../../lib/state/workspace.svelte";
 import { prompts } from "../../lib/ui/prompt.svelte";
 import { chooseMainline } from "../branches/branch-actions";
+import { openRepoInEditor } from "../editor/open-in-editor";
 
 function folderName(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
@@ -84,6 +85,13 @@ export function showRepoMenu(repo: RepoView): Promise<void> {
     }));
 
   return showContextMenu([
+    {
+      kind: "item",
+      text: "Open in VS Code",
+      enabled: !repo.missing,
+      run: () => void openRepoInEditor(repo),
+    },
+    { kind: "separator" },
     { kind: "item", text: "Rename…", run: () => void renameRepo(repo) },
     {
       kind: "item",

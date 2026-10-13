@@ -159,6 +159,9 @@ export class FakeBackend {
         });
       case "get_branches":
         return this.branchList(String(args.repoId));
+      case "open_in_editor":
+        this.repo(args.repoId);
+        return null;
       case "get_branch_commits": {
         const repo = this.repo(args.repoId);
         const branch = String(args.branch);
