@@ -35,5 +35,7 @@ export type { StatusSnapshot } from "./generated/StatusSnapshot";
 export type { StatusUpdate } from "./generated/StatusUpdate";
 export type { SummaryState } from "./generated/SummaryState";
 export type { SummaryUpdate } from "./generated/SummaryUpdate";
+export type { Token } from "./generated/Token";
+export type { TokenKind } from "./generated/TokenKind";
 export type { UpstreamState } from "./generated/UpstreamState";
 export type { WorkspaceSnapshot } from "./generated/WorkspaceSnapshot";

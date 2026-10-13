@@ -327,16 +327,16 @@ fn reads_and_changes_the_working_tree() {
 fn fixture_repo(harness: &Harness) -> PathBuf {
     let repo = harness.repo("api");
     let mut login = [
-        "use std::collections::HashMap;",
+        "import { loadUsers, verify } from \"./users\";",
         "",
-        "/// Handles login requests.",
-        "pub fn login(user: &str, password: &str) -> Result<Session, Error> {",
-        "    let users = load_users()?;",
-        "    let Some(hash) = users.get(user) else {",
-        "        return Err(Error::UnknownUser);",
-        "    };",
-        "    verify(hash, password)?;",
-        "    Ok(Session::new(user))",
+        "/** Handles login requests. */",
+        "export function login(user: string, password: string): Session {",
+        "  const users = loadUsers();",
+        "  const hash = users.get(user);",
+        "  if (!hash) throw new UnknownUser();",
+        "  // checked below",
+        "  verify(hash, password);",
+        "  return new Session(user);",
         "}",
     ]
     .join("\n");
@@ -344,7 +344,7 @@ fn fixture_repo(harness: &Harness) -> PathBuf {
     for n in 1..=40 {
         writeln!(login, "// line {n}").unwrap();
     }
-    write(&repo, "src/handlers/login.rs", &login);
+    write(&repo, "src/handlers/login.ts", &login);
     write(&repo, "config.toml", "[server]\nport = 8080\n");
     write(&repo, "legacy.txt", "old notes\n");
     write(&repo, "README.md", "# api\n");
@@ -353,12 +353,12 @@ fn fixture_repo(harness: &Harness) -> PathBuf {
 
     let edited = login
         .replace(
-            "    let users = load_users()?;\n",
-            "    let users = load_users().context(\"loading users\")?;\n    tracing::debug!(user, \"login attempt\");\n",
+            "  const users = loadUsers();\n",
+            "  const users = loadUsers({ cache: true });\n  log.debug(\"login attempt\", { user });\n",
         )
-        .replace("Error::UnknownUser)", "Error::UnknownUser(user.to_owned()))")
+        .replace("new UnknownUser()", "new UnknownUser(user)")
         .replace("// line 30\n", "// line 30 (changed)\n");
-    write(&repo, "src/handlers/login.rs", edited);
+    write(&repo, "src/handlers/login.ts", edited);
     write(&repo, "config.toml", "[server]\nport = 9090\n");
     git(&repo, &["add", "config.toml"]);
     write(
@@ -424,7 +424,7 @@ fn fixture_covers_every_kind_of_change() {
             .unwrap()
     );
     assert_eq!(
-        diffs["unstaged:src/handlers/login.rs"]["hunks"]
+        diffs["unstaged:src/handlers/login.ts"]["hunks"]
             .as_array()
             .unwrap()
             .len(),

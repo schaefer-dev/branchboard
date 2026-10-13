@@ -429,6 +429,7 @@ function syntheticHunks(lines: number): FileDiff["hunks"] {
         newLine: i + 1,
         text: `row ${String(i + 1)}`,
         noNewline: false,
+        tokens: [],
       })),
     },
   ];

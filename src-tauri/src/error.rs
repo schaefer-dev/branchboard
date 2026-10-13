@@ -28,9 +28,7 @@ pub enum AppErrorKind {
     InvalidInput,
     EditorNotFound,
     Io,
-    /// Unexpected failures, e.g. a rejected IPC call. Also produced by the
-    /// frontend for errors that never reached a command.
-    #[expect(dead_code, reason = "not yet produced by the backend")]
+    /// Unexpected failures, e.g. a rejected IPC call or a crashed task.
     Internal,
 }
 
@@ -118,6 +116,7 @@ impl From<WorkspaceError> for AppError {
             | WorkspaceError::DuplicateGroup(_)
             | WorkspaceError::AlreadyRegistered(_) => Self::new(Kind::InvalidInput, message, None),
             WorkspaceError::Save(source) => Self::new(Kind::Io, message, Some(source.to_string())),
+            WorkspaceError::Highlight(detail) => Self::new(Kind::Internal, message, Some(detail)),
             WorkspaceError::Trash(detail) | WorkspaceError::Editor(detail) => {
                 Self::new(Kind::Io, message, Some(detail))
             }

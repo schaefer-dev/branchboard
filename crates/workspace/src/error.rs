@@ -31,6 +31,9 @@ pub enum WorkspaceError {
     #[error("The editor could not be started.")]
     Editor(String),
 
+    #[error("The diff could not be prepared.")]
+    Highlight(String),
+
     #[error("The files could not be moved to the trash.")]
     Trash(String),
 

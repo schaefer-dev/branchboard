@@ -13,21 +13,52 @@
               "newLine": 1,
               "noNewline": false,
               "oldLine": 1,
-              "text": "[server]"
+              "text": "[server]",
+              "tokens": [
+                {
+                  "end": 7,
+                  "kind": "type",
+                  "start": 1
+                }
+              ]
             },
             {
               "kind": "removed",
               "newLine": null,
               "noNewline": false,
               "oldLine": 2,
-              "text": "port = 8080"
+              "text": "port = 8080",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "type",
+                  "start": 0
+                },
+                {
+                  "end": 11,
+                  "kind": "number",
+                  "start": 7
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 2,
               "noNewline": false,
               "oldLine": null,
-              "text": "port = 9090"
+              "text": "port = 9090",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "type",
+                  "start": 0
+                },
+                {
+                  "end": 11,
+                  "kind": "number",
+                  "start": 7
+                }
+              ]
             }
           ],
           "newStart": 1,
@@ -64,7 +95,14 @@
               "newLine": null,
               "noNewline": false,
               "oldLine": 1,
-              "text": "# api"
+              "text": "# api",
+              "tokens": [
+                {
+                  "end": 5,
+                  "kind": "keyword",
+                  "start": 2
+                }
+              ]
             }
           ],
           "newStart": 0,
@@ -101,21 +139,52 @@
               "newLine": 1,
               "noNewline": false,
               "oldLine": 1,
-              "text": "[server]"
+              "text": "[server]",
+              "tokens": [
+                {
+                  "end": 7,
+                  "kind": "type",
+                  "start": 1
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 2,
               "noNewline": false,
               "oldLine": 2,
-              "text": "port = 9090"
+              "text": "port = 9090",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "type",
+                  "start": 0
+                },
+                {
+                  "end": 11,
+                  "kind": "number",
+                  "start": 7
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 3,
               "noNewline": false,
               "oldLine": null,
-              "text": "host = \"0.0.0.0\""
+              "text": "host = \"0.0.0.0\"",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "type",
+                  "start": 0
+                },
+                {
+                  "end": 16,
+                  "kind": "string",
+                  "start": 7
+                }
+              ]
             }
           ],
           "newStart": 1,
@@ -150,7 +219,8 @@
               "newLine": 1,
               "noNewline": false,
               "oldLine": null,
-              "text": "scratch"
+              "text": "scratch",
+              "tokens": []
             }
           ],
           "newStart": 1,
@@ -163,160 +233,384 @@
       ],
       "tooLarge": false
     },
-    "unstaged:src/handlers/login.rs": {
+    "unstaged:src/handlers/login.ts": {
       "additions": 4,
       "binary": false,
       "deletions": 3,
       "hunks": [
         {
-          "header": "@@ -2,9 +2,10 @@ use std::collections::HashMap;",
+          "header": "@@ -2,9 +2,10 @@ import { loadUsers, verify } from \"./users\";",
           "lines": [
             {
               "kind": "context",
               "newLine": 2,
               "noNewline": false,
               "oldLine": 2,
-              "text": ""
+              "text": "",
+              "tokens": []
             },
             {
               "kind": "context",
               "newLine": 3,
               "noNewline": false,
               "oldLine": 3,
-              "text": "/// Handles login requests."
+              "text": "/** Handles login requests. */",
+              "tokens": [
+                {
+                  "end": 30,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 4,
               "noNewline": false,
               "oldLine": 4,
-              "text": "pub fn login(user: &str, password: &str) -> Result<Session, Error> {"
+              "text": "export function login(user: string, password: string): Session {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 21,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 28
+                },
+                {
+                  "end": 52,
+                  "kind": "type",
+                  "start": 46
+                },
+                {
+                  "end": 62,
+                  "kind": "type",
+                  "start": 55
+                }
+              ]
             },
             {
               "kind": "removed",
               "newLine": null,
               "noNewline": false,
               "oldLine": 5,
-              "text": "    let users = load_users()?;"
+              "text": "  const users = loadUsers();",
+              "tokens": [
+                {
+                  "end": 7,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 25,
+                  "kind": "function",
+                  "start": 16
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 5,
               "noNewline": false,
               "oldLine": null,
-              "text": "    let users = load_users().context(\"loading users\")?;"
+              "text": "  const users = loadUsers({ cache: true });",
+              "tokens": [
+                {
+                  "end": 7,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 25,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 39,
+                  "kind": "number",
+                  "start": 35
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 6,
               "noNewline": false,
               "oldLine": null,
-              "text": "    tracing::debug!(user, \"login attempt\");"
+              "text": "  log.debug(\"login attempt\", { user });",
+              "tokens": [
+                {
+                  "end": 11,
+                  "kind": "function",
+                  "start": 6
+                },
+                {
+                  "end": 27,
+                  "kind": "string",
+                  "start": 12
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 7,
               "noNewline": false,
               "oldLine": 6,
-              "text": "    let Some(hash) = users.get(user) else {"
+              "text": "  const hash = users.get(user);",
+              "tokens": [
+                {
+                  "end": 7,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 24,
+                  "kind": "function",
+                  "start": 21
+                }
+              ]
             },
             {
               "kind": "removed",
               "newLine": null,
               "noNewline": false,
               "oldLine": 7,
-              "text": "        return Err(Error::UnknownUser);"
+              "text": "  if (!hash) throw new UnknownUser();",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 18,
+                  "kind": "keyword",
+                  "start": 13
+                },
+                {
+                  "end": 22,
+                  "kind": "keyword",
+                  "start": 19
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 23
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 8,
               "noNewline": false,
               "oldLine": null,
-              "text": "        return Err(Error::UnknownUser(user.to_owned()));"
+              "text": "  if (!hash) throw new UnknownUser(user);",
+              "tokens": [
+                {
+                  "end": 4,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 18,
+                  "kind": "keyword",
+                  "start": 13
+                },
+                {
+                  "end": 22,
+                  "kind": "keyword",
+                  "start": 19
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 23
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 9,
               "noNewline": false,
               "oldLine": 8,
-              "text": "    };"
+              "text": "  // checked below",
+              "tokens": [
+                {
+                  "end": 18,
+                  "kind": "comment",
+                  "start": 2
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 10,
               "noNewline": false,
               "oldLine": 9,
-              "text": "    verify(hash, password)?;"
+              "text": "  verify(hash, password);",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "function",
+                  "start": 2
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 11,
               "noNewline": false,
               "oldLine": 10,
-              "text": "    Ok(Session::new(user))"
+              "text": "  return new Session(user);",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 12,
+                  "kind": "keyword",
+                  "start": 9
+                },
+                {
+                  "end": 20,
+                  "kind": "type",
+                  "start": 13
+                }
+              ]
             }
           ],
           "newStart": 2,
           "oldStart": 2
         },
         {
-          "header": "@@ -38,7 +39,7 @@ pub fn login(user: &str, password: &str) -> Result<Session, Error> {",
+          "header": "@@ -38,7 +39,7 @@ export function login(user: string, password: string): Session {",
           "lines": [
             {
               "kind": "context",
               "newLine": 39,
               "noNewline": false,
               "oldLine": 38,
-              "text": "// line 27"
+              "text": "// line 27",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 40,
               "noNewline": false,
               "oldLine": 39,
-              "text": "// line 28"
+              "text": "// line 28",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 41,
               "noNewline": false,
               "oldLine": 40,
-              "text": "// line 29"
+              "text": "// line 29",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "removed",
               "newLine": null,
               "noNewline": false,
               "oldLine": 41,
-              "text": "// line 30"
+              "text": "// line 30",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "added",
               "newLine": 42,
               "noNewline": false,
               "oldLine": null,
-              "text": "// line 30 (changed)"
+              "text": "// line 30 (changed)",
+              "tokens": [
+                {
+                  "end": 20,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 43,
               "noNewline": false,
               "oldLine": 42,
-              "text": "// line 31"
+              "text": "// line 31",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 44,
               "noNewline": false,
               "oldLine": 43,
-              "text": "// line 32"
+              "text": "// line 32",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             },
             {
               "kind": "context",
               "newLine": 45,
               "noNewline": false,
               "oldLine": 44,
-              "text": "// line 33"
+              "text": "// line 33",
+              "tokens": [
+                {
+                  "end": 10,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
             }
           ],
           "newStart": 39,
@@ -359,7 +653,7 @@
       {
         "kind": "modified",
         "origPath": null,
-        "path": "src/handlers/login.rs"
+        "path": "src/handlers/login.ts"
       },
       {
         "kind": "untracked",

@@ -25,6 +25,33 @@ pub struct DiffLine {
     pub text: String,
     /// The line has no trailing newline in its file.
     pub no_newline: bool,
+    /// Syntax tokens, filled in by the highlighter; empty if not highlighted.
+    pub tokens: Vec<Token>,
+}
+
+/// A highlighted range of a line. Offsets count UTF-16 code units, so the
+/// frontend can slice JavaScript strings with them directly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Token {
+    pub start: u32,
+    pub end: u32,
+    pub kind: TokenKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum TokenKind {
+    Comment,
+    Keyword,
+    String,
+    Number,
+    Function,
+    Type,
+    Tag,
+    Attribute,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -141,6 +168,7 @@ pub fn parse_diff(raw: &[u8], limits: DiffLimits) -> Result<FileDiff, GitError> 
             new_line: new,
             text: content.to_owned(),
             no_newline: false,
+            tokens: Vec::new(),
         });
     }
 

@@ -157,7 +157,7 @@ test.describe("command palette", () => {
       paths: [
         "README.md",
         "config.toml",
-        "src/handlers/login.rs",
+        "src/handlers/login.ts",
         "assets/logo.png",
         "data/big.csv",
         "notes.md",

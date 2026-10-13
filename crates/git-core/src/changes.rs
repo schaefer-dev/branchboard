@@ -35,6 +35,17 @@ pub struct DiffRequest {
 
 const DIFF_ARGS: &[&str] = &["--no-ext-diff", "--no-color", "-U3"];
 
+/// File versions larger than this are not loaded for highlighting.
+const MAX_SOURCE_BYTES: u64 = 1024 * 1024;
+
+/// The two versions of a file that a diff compares (lossy UTF-8). A side is
+/// `None` if it does not exist (e.g. a new file) or is too large.
+#[derive(Debug, Default)]
+pub struct DiffSources {
+    pub old: Option<String>,
+    pub new: Option<String>,
+}
+
 impl Git {
     pub async fn status(&self, repo: &Path) -> Result<StatusSnapshot, GitError> {
         let output = self
@@ -88,6 +99,60 @@ impl Git {
             DiffLimits::DEFAULT
         };
         parse_diff(&output.stdout, limits)
+    }
+
+    /// Loads the old and new version of the file a diff request shows: the
+    /// index and working tree for unstaged changes, `HEAD` and the index for
+    /// staged ones.
+    pub async fn diff_sources(
+        &self,
+        repo: &Path,
+        request: &DiffRequest,
+    ) -> Result<DiffSources, GitError> {
+        let path = request.path.as_str();
+        let deleted = request.kind == ChangeKind::Deleted;
+        Ok(match request.area {
+            DiffArea::Unstaged => DiffSources {
+                old: match request.kind {
+                    ChangeKind::Untracked => None,
+                    ChangeKind::Conflicted => self.blob(repo, &format!("HEAD:{path}")).await?,
+                    _ => self.blob(repo, &format!(":{path}")).await?,
+                },
+                new: if deleted {
+                    None
+                } else {
+                    read_source(&repo.join(path)).await
+                },
+            },
+            DiffArea::Staged => DiffSources {
+                old: if request.kind == ChangeKind::Added {
+                    None
+                } else {
+                    let old_path = request.orig_path.as_deref().unwrap_or(path);
+                    self.blob(repo, &format!("HEAD:{old_path}")).await?
+                },
+                new: if deleted {
+                    None
+                } else {
+                    self.blob(repo, &format!(":{path}")).await?
+                },
+            },
+        })
+    }
+
+    /// Contents of a blob such as `HEAD:src/main.rs`, or `None` if it does
+    /// not exist or is too large.
+    async fn blob(&self, repo: &Path, spec: &str) -> Result<Option<String>, GitError> {
+        let output = self
+            .runner()
+            .command(["cat-file", "blob", spec])
+            .success_codes(&[0, 128])
+            .current_dir(repo)
+            .output()
+            .await?;
+        let too_large = u64::try_from(output.stdout.len()).unwrap_or(u64::MAX) > MAX_SOURCE_BYTES;
+        Ok((output.exit_code == 0 && !too_large)
+            .then(|| String::from_utf8_lossy(&output.stdout).into_owned()))
     }
 
     /// Stages the given paths, including deletions.
@@ -145,4 +210,13 @@ impl Git {
             .await?;
         Ok(())
     }
+}
+
+async fn read_source(path: &Path) -> Option<String> {
+    let metadata = tokio::fs::metadata(path).await.ok()?;
+    if !metadata.is_file() || metadata.len() > MAX_SOURCE_BYTES {
+        return None;
+    }
+    let bytes = tokio::fs::read(path).await.ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
 }

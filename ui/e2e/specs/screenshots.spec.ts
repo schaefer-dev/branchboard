@@ -18,7 +18,7 @@ for (const scheme of schemes) {
 
     test("changes with a diff", async ({ page }, info) => {
       await openApp(page);
-      await changesList(page).locator('[data-key="unstaged:src/handlers/login.rs"]').click();
+      await changesList(page).locator('[data-key="unstaged:src/handlers/login.ts"]').click();
       await expect(diffPane(page).locator(".hunk")).toHaveCount(2);
       await capture(page, info.project.name, "changes", scheme);
     });

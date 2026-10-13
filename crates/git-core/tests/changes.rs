@@ -198,3 +198,59 @@ async fn diffs_staged_unstaged_and_untracked_files() {
     assert_eq!(untracked.additions, 1);
     assert_eq!(untracked.notes, vec!["new file mode 100644"]);
 }
+
+#[tokio::test]
+async fn loads_both_versions_of_a_change() {
+    let repo = TestRepo::init().await;
+    repo.commit_file("file.txt", "committed\n").await;
+    repo.write("file.txt", "staged\n");
+    repo.git
+        .stage(&repo.path(), &["file.txt".to_owned()])
+        .await
+        .unwrap();
+    repo.write("file.txt", "working\n");
+    repo.write("new.txt", "fresh\n");
+    let status = status(&repo).await;
+
+    let staged = repo
+        .git
+        .diff_sources(
+            &repo.path(),
+            &request(status.find_staged("file.txt").unwrap(), DiffArea::Staged),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        (staged.old.as_deref(), staged.new.as_deref()),
+        (Some("committed\n"), Some("staged\n"))
+    );
+
+    let unstaged = repo
+        .git
+        .diff_sources(
+            &repo.path(),
+            &request(
+                status.find_unstaged("file.txt").unwrap(),
+                DiffArea::Unstaged,
+            ),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        (unstaged.old.as_deref(), unstaged.new.as_deref()),
+        (Some("staged\n"), Some("working\n"))
+    );
+
+    let untracked = repo
+        .git
+        .diff_sources(
+            &repo.path(),
+            &request(status.find_unstaged("new.txt").unwrap(), DiffArea::Unstaged),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        (untracked.old, untracked.new.as_deref()),
+        (None, Some("fresh\n"))
+    );
+}

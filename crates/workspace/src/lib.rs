@@ -11,12 +11,13 @@ mod store;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, OnceLock, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use git_core::{
     BranchList, ChangeKind, DiffRequest, FileDiff, Git, GitError, Head, StatusSnapshot,
 };
+use highlight::Highlighter;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task::JoinSet;
 
@@ -49,6 +50,7 @@ pub struct Workspace {
     monitor: Arc<Monitor>,
     /// Repositories with a fetch in flight.
     fetching: std::sync::Mutex<HashSet<RepoId>>,
+    highlighter: Arc<OnceLock<Highlighter>>,
 }
 
 impl Workspace {
@@ -62,6 +64,7 @@ impl Workspace {
             monitor: Monitor::new(Arc::clone(&sink)),
             sink,
             fetching: std::sync::Mutex::new(HashSet::new()),
+            highlighter: Arc::new(OnceLock::new()),
         }
     }
 
@@ -174,7 +177,26 @@ impl Workspace {
         request: &DiffRequest,
     ) -> Result<FileDiff, WorkspaceError> {
         let path = self.repo_path(id).await?;
-        Ok(git.diff(&path, request).await?)
+        let mut diff = git.diff(&path, request).await?;
+        if diff.binary || diff.too_large || !Highlighter::supports(&request.path) {
+            return Ok(diff);
+        }
+        let sources = git.diff_sources(&path, request).await?;
+        let highlighter = Arc::clone(&self.highlighter);
+        let file = request.path.clone();
+        // Highlighting is CPU-bound; keep it off the async workers.
+        diff = tokio::task::spawn_blocking(move || {
+            highlighter.get_or_init(Highlighter::new).highlight_diff(
+                &file,
+                &mut diff,
+                sources.old.as_deref(),
+                sources.new.as_deref(),
+            );
+            diff
+        })
+        .await
+        .map_err(|error| WorkspaceError::Highlight(error.to_string()))?;
+        Ok(diff)
     }
 
     pub async fn stage(

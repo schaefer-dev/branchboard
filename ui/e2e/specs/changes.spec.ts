@@ -31,7 +31,7 @@ test.describe("changes and diffs", () => {
       "legacy-notes.txt",
       "README.md",
       "config.toml",
-      "login.rs",
+      "login.ts",
       "logo.png",
       "big.csv",
       "notes.md",
@@ -44,13 +44,18 @@ test.describe("changes and diffs", () => {
   });
 
   test("shows hunks with line numbers", async ({ page }) => {
-    await select(page, "unstaged:src/handlers/login.rs");
+    await select(page, "unstaged:src/handlers/login.ts");
     const diff = diffPane(page);
     await expect(diff.locator(".hunk")).toHaveCount(2);
     const added = diff
       .locator(".line.added")
-      .filter({ hasText: 'tracing::debug!(user, "login attempt");' });
+      .filter({ hasText: 'log.debug("login attempt", { user });' });
     await expect(added.locator(".num").nth(1)).toHaveText("6");
+    // Syntax highlighting recorded from the real backend is rendered.
+    await expect(diff.locator(".tok-function", { hasText: "loadUsers" }).first()).toBeVisible();
+    await expect(
+      diff.locator(".tok-comment", { hasText: "/** Handles login requests. */" }),
+    ).toBeVisible();
     await expect(diff.getByText("src/handlers/")).toBeVisible();
   });
 
@@ -79,10 +84,10 @@ test.describe("changes and diffs", () => {
   });
 
   test("stages with Space and moves on to the next file", async ({ page }) => {
-    await select(page, "unstaged:src/handlers/login.rs");
+    await select(page, "unstaged:src/handlers/login.ts");
     await page.keyboard.press("Space");
-    await expectCall(page, "stage_paths", { repoId: "api", paths: ["src/handlers/login.rs"] });
-    await expect(row(page, "staged:src/handlers/login.rs")).toBeVisible();
+    await expectCall(page, "stage_paths", { repoId: "api", paths: ["src/handlers/login.ts"] });
+    await expect(row(page, "staged:src/handlers/login.ts")).toBeVisible();
     await expect(row(page, "unstaged:assets/logo.png")).toHaveAttribute("aria-selected", "true");
   });
 
@@ -135,12 +140,12 @@ test.describe("changes and diffs", () => {
   });
 
   test("opens the selected file in VS Code at the first change", async ({ page }) => {
-    await select(page, "unstaged:src/handlers/login.rs");
+    await select(page, "unstaged:src/handlers/login.ts");
     await expect(diffPane(page).locator(".hunk")).toHaveCount(2);
     await page.keyboard.press(`${await mod(page)}+Shift+e`);
     await expectCall(page, "open_in_editor", {
       repoId: "api",
-      path: "src/handlers/login.rs",
+      path: "src/handlers/login.ts",
       line: 5,
     });
 

@@ -18,8 +18,8 @@ describe("firstChangedLine", () => {
     expect(
       firstChangedLine(
         diff([
-          { kind: "context", oldLine: 10, newLine: 10, text: "", noNewline: false },
-          { kind: "added", oldLine: null, newLine: 11, text: "", noNewline: false },
+          { kind: "context", oldLine: 10, newLine: 10, text: "", noNewline: false, tokens: [] },
+          { kind: "added", oldLine: null, newLine: 11, text: "", noNewline: false, tokens: [] },
         ]),
       ),
     ).toBe(11);
@@ -29,8 +29,8 @@ describe("firstChangedLine", () => {
     expect(
       firstChangedLine(
         diff([
-          { kind: "removed", oldLine: 5, newLine: null, text: "", noNewline: false },
-          { kind: "added", oldLine: null, newLine: 5, text: "", noNewline: false },
+          { kind: "removed", oldLine: 5, newLine: null, text: "", noNewline: false, tokens: [] },
+          { kind: "added", oldLine: null, newLine: 5, text: "", noNewline: false, tokens: [] },
         ]),
       ),
     ).toBe(5);
@@ -39,7 +39,10 @@ describe("firstChangedLine", () => {
   it("falls back to the hunk start for pure deletions and to null without a diff", () => {
     expect(
       firstChangedLine(
-        diff([{ kind: "removed", oldLine: 4, newLine: null, text: "", noNewline: false }], 4),
+        diff(
+          [{ kind: "removed", oldLine: 4, newLine: null, text: "", noNewline: false, tokens: [] }],
+          4,
+        ),
       ),
     ).toBe(4);
     expect(firstChangedLine(null)).toBeNull();

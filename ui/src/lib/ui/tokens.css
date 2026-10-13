@@ -33,6 +33,16 @@
   --color-danger: #b3403a;
   --color-modified: #3d6fd1;
 
+  /* Syntax: muted, distinct hues that stay readable on the diff tints. */
+  --syntax-comment: #7d8592;
+  --syntax-keyword: #7a3fb0;
+  --syntax-string: #0f6e75;
+  --syntax-number: #a1460f;
+  --syntax-function: #2457b3;
+  --syntax-type: #9d2f5f;
+  --syntax-tag: #2457b3;
+  --syntax-attribute: #7a3fb0;
+
   /* Type */
   --font-ui:
     -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
@@ -83,6 +93,14 @@
     --color-deleted-bg: rgb(240 118 107 / 12%);
     --color-danger: #f0766b;
     --color-modified: #7aa2f7;
+    --syntax-comment: #737b88;
+    --syntax-keyword: #c79bf2;
+    --syntax-string: #7cc7c9;
+    --syntax-number: #f0a07a;
+    --syntax-function: #82aaff;
+    --syntax-type: #f28fb5;
+    --syntax-tag: #82aaff;
+    --syntax-attribute: #c79bf2;
   }
 }
 
@@ -107,4 +125,12 @@
   --color-deleted-bg: rgb(240 118 107 / 12%);
   --color-danger: #f0766b;
   --color-modified: #7aa2f7;
+  --syntax-comment: #737b88;
+  --syntax-keyword: #c79bf2;
+  --syntax-string: #7cc7c9;
+  --syntax-number: #f0a07a;
+  --syntax-function: #82aaff;
+  --syntax-type: #f28fb5;
+  --syntax-tag: #82aaff;
+  --syntax-attribute: #c79bf2;
 }

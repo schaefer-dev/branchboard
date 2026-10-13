@@ -2,6 +2,7 @@
   import type { FileDiff } from "../../lib/api";
   import VirtualList from "../../lib/ui/VirtualList.svelte";
   import { maxLineWidth, unifiedRows, type DiffRow } from "./diff-rows";
+  import { segments } from "./segments";
 
   interface Props {
     diff: FileDiff;
@@ -38,7 +39,11 @@
         <span class="num">{row.line.oldLine ?? ""}</span>
         <span class="num">{row.line.newLine ?? ""}</span>
         <span class="sign">{sign[row.line.kind]}</span>
-        <span class="text">{row.line.text}</span>
+        <span class="text"
+          >{#each segments(row.line.text, row.line.tokens) as segment, index (index)}{#if segment.kind}<span
+                class="tok tok-{segment.kind}">{segment.text}</span
+              >{:else}{segment.text}{/if}{/each}</span
+        >
         {#if row.line.noNewline}
           <span class="eof" title="No newline at end of file">⏎̸</span>
         {/if}
@@ -107,6 +112,39 @@
 
   .hunk .text {
     padding-left: 2.5ch;
+  }
+
+  .tok-comment {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+
+  .tok-keyword {
+    color: var(--syntax-keyword);
+  }
+
+  .tok-string {
+    color: var(--syntax-string);
+  }
+
+  .tok-number {
+    color: var(--syntax-number);
+  }
+
+  .tok-function {
+    color: var(--syntax-function);
+  }
+
+  .tok-type {
+    color: var(--syntax-type);
+  }
+
+  .tok-tag {
+    color: var(--syntax-tag);
+  }
+
+  .tok-attribute {
+    color: var(--syntax-attribute);
   }
 
   .eof {

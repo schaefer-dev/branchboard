@@ -19,8 +19,10 @@ mod version;
 use std::path::Path;
 
 pub use branches::{AheadBehind, Branch, BranchList, UpstreamState};
-pub use changes::{DiffArea, DiffRequest};
-pub use diff::{DiffHunk, DiffLimits, DiffLine, DiffLineKind, FileDiff};
+pub use changes::{DiffArea, DiffRequest, DiffSources};
+pub use diff::{
+    DiffHunk, DiffLimits, DiffLine, DiffLineKind, FileDiff, Token, TokenKind, parse_diff,
+};
 pub use discovery::DiscoveryOptions;
 pub use error::GitError;
 pub use log::{CommitList, CommitSummary};
