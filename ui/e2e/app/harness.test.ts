@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { availablePort, cleanup, waitDebuggingReady } from "./attach.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -152,4 +154,165 @@ void test("stop waits for the driver to close", async (t) => {
   const process = driver(t);
   await process.stop();
   assert.ok(process.child.exitCode !== null || process.child.signalCode !== null);
+});
+
+void test("attach sends only WebView2 attach capabilities", async (t) => {
+  const base = await server(t, (request, response) => {
+    let body = "";
+    request.on("data", (data: Buffer) => {
+      body += data.toString();
+    });
+    request.on("end", () => {
+      assert.deepEqual(JSON.parse(body), {
+        capabilities: {
+          alwaysMatch: {
+            browserName: "webview2",
+            "ms:edgeChromium": true,
+            "ms:edgeOptions": { debuggerAddress: "127.0.0.1:9222" },
+          },
+        },
+      });
+      response.end('{"value":{"sessionId":"attached"}}');
+    });
+  });
+  assert.equal((await Session.attach(base, "127.0.0.1:9222")).id, "attached");
+});
+
+const version = JSON.stringify({
+  Browser: "Edg/153",
+  webSocketDebuggerUrl: "ws://127.0.0.1/browser",
+});
+const pages = JSON.stringify([
+  { id: "page", type: "page", webSocketDebuggerUrl: "ws://127.0.0.1/page" },
+]);
+
+void test("debugging readiness waits for both version and a page target", async (t) => {
+  let attempts = 0;
+  const records: string[] = [];
+  const base = await server(t, (request, response) => {
+    if (request.url === "/json/version") {
+      attempts++;
+      response.end(attempts === 1 ? "not JSON" : version);
+    } else response.end(attempts < 4 ? "[]" : pages);
+  });
+  await waitDebuggingReady(driver(t), base, { timeoutMs: 2_000, pollMs: 10 }, (path) => {
+    records.push(path);
+  });
+  assert.equal(attempts, 4);
+  assert.ok(records.includes("version") && records.includes("list"));
+});
+
+for (const [name, versionBody, listBody, expected] of [
+  ["malformed version", "not JSON", pages, /version: malformed JSON/],
+  ["incomplete version", "{}", pages, /version: missing Browser/],
+  ["malformed targets", version, "not JSON", /list: malformed JSON/],
+  ["missing page", version, '[{"type":"service_worker"}]', /no valid page target/],
+  ["incomplete page", version, '[{"type":"page"}]', /no valid page target/],
+] as const) {
+  void test(`debugging readiness diagnoses ${name}`, async (t) => {
+    const base = await server(t, (request, response) =>
+      response.end(request.url === "/json/version" ? versionBody : listBody),
+    );
+    await assert.rejects(
+      waitDebuggingReady(driver(t), base, { timeoutMs: 150, pollMs: 10 }),
+      expected,
+    );
+  });
+}
+
+void test("debugging readiness bounds stalled requests", async (t) => {
+  const base = await server(t, () => undefined);
+  await assert.rejects(
+    waitDebuggingReady(driver(t), base, { timeoutMs: 150, requestTimeoutMs: 30, pollMs: 10 }),
+    /debugging endpoint readiness timed out/,
+  );
+});
+
+void test("application exit interrupts debugging readiness immediately", async (t) => {
+  const base = await server(t, () => undefined);
+  await assert.rejects(
+    waitDebuggingReady(driver(t, "process.exit(9)"), base, { timeoutMs: 2_000 }),
+    /exited \(code=9/,
+  );
+});
+
+void test("application exit interrupts attachment", async (t) => {
+  const base = await server(t, () => undefined);
+  await assert.rejects(
+    driver(t, "setTimeout(() => process.exit(10), 50)").guard(
+      Session.attach(base, "127.0.0.1:9222", 150),
+    ),
+    /exited \(code=10/,
+  );
+});
+
+void test("failed attachment still closes both processes and removes the profile", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "attach-cleanup-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const app = driver(t);
+  const webdriver = driver(t);
+  const base = await server(t, (_request, response) =>
+    response.writeHead(500).end('{"value":{"error":"session not created"}}'),
+  );
+  await assert.rejects(
+    app.guard(webdriver.guard(Session.attach(base, "127.0.0.1:9222"))),
+    /session not created/,
+  );
+  await cleanup(undefined, [webdriver, app], root);
+  assert.ok(app.child.exitCode !== null || app.child.signalCode !== null);
+  assert.ok(webdriver.child.exitCode !== null || webdriver.child.signalCode !== null);
+  assert.equal(existsSync(root), false);
+});
+
+void test("cleanup tries every process and retains data if termination fails", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "attach-retained-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const app = driver(t);
+  const webdriver = driver(t);
+  const stop = app.stop.bind(app);
+  t.mock.method(app, "stop", () => Promise.reject(new Error("termination failed")));
+  await assert.rejects(
+    cleanup(undefined, [app, webdriver], root),
+    /temporary test data was retained/,
+  );
+  assert.ok(webdriver.child.exitCode !== null || webdriver.child.signalCode !== null);
+  assert.equal(existsSync(root), true);
+  t.mock.restoreAll();
+  await stop();
+});
+
+void test("driver exit interrupts attachment", async (t) => {
+  const base = await server(t, () => undefined);
+  const app = driver(t);
+  const webdriver = driver(t, "setTimeout(() => process.exit(11), 50)");
+  await assert.rejects(
+    app.guard(webdriver.guard(Session.attach(base, "127.0.0.1:9222", 150))),
+    /exited \(code=11/,
+  );
+});
+
+void test("attachment has a bounded timeout", async (t) => {
+  const base = await server(t, () => undefined);
+  await assert.rejects(Session.attach(base, "127.0.0.1:9222", 50), /timed out after 50ms/);
+});
+
+void test("allocated debugging port can be bound on loopback", async (t) => {
+  const port = await availablePort();
+  const http = createServer();
+  await new Promise<void>((resolve, reject) => {
+    http.once("error", reject);
+    http.listen(port, "127.0.0.1", resolve);
+  });
+  t.after(
+    () =>
+      new Promise<void>((resolve) => {
+        http.close(() => {
+          resolve();
+        });
+      }),
+  );
 });

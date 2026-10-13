@@ -9,15 +9,26 @@
 // `tauri-driver`), NATIVE_DRIVER (path to msedgedriver, optional).
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { Keys, Session } from "./webdriver.ts";
-import { Driver } from "./driver.ts";
+import { Driver, OwnedProcess } from "./driver.ts";
 
+import { availablePort, cleanup, waitDebuggingReady } from "./attach.ts";
+
+const diagnostics = join(process.cwd(), "e2e-results", "smoke");
 const DRIVER_URL = "http://127.0.0.1:4444";
 const exe = process.platform === "win32" ? ".exe" : "";
 const app =
@@ -27,6 +38,8 @@ let root: string | undefined;
 let repo: string;
 let driver: Driver | undefined;
 let session: Session | undefined;
+let application: OwnedProcess | undefined;
+let profile: string | undefined;
 
 function git(cwd: string, ...args: string[]): string {
   const result = spawnSync(
@@ -47,7 +60,6 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 before(async () => {
-  const diagnostics = join(process.cwd(), "e2e-results", "smoke");
   mkdirSync(diagnostics, { recursive: true });
   writeFileSync(join(diagnostics, "driver.log"), "");
   const log = (message: string) => {
@@ -97,21 +109,74 @@ before(async () => {
     { ...process.env, BRANCHBOARD_WORKSPACE_FILE: workspace },
     log,
   );
+  let phase = "driver readiness";
   try {
-    await driver.waitReady(DRIVER_URL);
-    session = await driver.guard(Session.start(DRIVER_URL, app));
+    if (process.platform === "win32") {
+      profile = join(root, "webview2-profile");
+      const port = await availablePort();
+      const debuggerAddress = `127.0.0.1:${String(port)}`;
+      const browserLog = join(diagnostics, "browser.log");
+      const browserArguments = `--remote-debugging-port=${String(port)} --remote-debugging-address=127.0.0.1 --enable-logging --log-file="${browserLog}" --v=1`;
+      writeFileSync(join(diagnostics, "application.log"), "");
+      writeFileSync(
+        join(diagnostics, "debugging.json"),
+        JSON.stringify({ debuggerAddress, profile, browserArguments }, null, 2),
+      );
+      application = new OwnedProcess(
+        app,
+        [],
+        {
+          ...process.env,
+          BRANCHBOARD_WORKSPACE_FILE: workspace,
+          WEBVIEW2_USER_DATA_FOLDER: profile,
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: browserArguments,
+          TAURI_WEBVIEW_AUTOMATION: "true",
+        },
+        (message) => {
+          appendFileSync(join(diagnostics, "application.log"), message);
+          process.stdout.write(message);
+        },
+      );
+      await application.guard(driver.waitReady(DRIVER_URL));
+      phase = "WebView2 debugging endpoint readiness";
+      await driver.guard(
+        waitDebuggingReady(application, `http://${debuggerAddress}`, {}, (path, body) => {
+          writeFileSync(join(diagnostics, `debugging-${path}.json`), body);
+        }),
+      );
+      phase = "WebDriver attachment";
+      session = await application.guard(driver.guard(Session.attach(DRIVER_URL, debuggerAddress)));
+    } else {
+      await driver.waitReady(DRIVER_URL);
+      phase = "WebDriver application launch";
+      session = await driver.guard(Session.start(DRIVER_URL, app));
+    }
   } catch (error) {
     log(
-      `Smoke-test startup failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+      `Smoke-test startup failed during ${phase}: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
     );
     throw error;
   }
 });
 
 after(async () => {
-  await session?.end().catch(() => undefined);
-  await driver?.stop();
-  if (root) rmSync(root, { recursive: true, force: true });
+  // Copy crash reports before removing the isolated profile, including on hook/test failures.
+  const preserveCrashes = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const source = join(directory, entry.name);
+      if (/crash|\.dmp$/i.test(entry.name)) {
+        const destination = join(
+          diagnostics,
+          "profile-crashes",
+          source.slice((profile?.length ?? 0) + 1),
+        );
+        cpSync(source, destination, { recursive: true });
+      } else if (entry.isDirectory()) preserveCrashes(source);
+    }
+  };
+  await cleanup(session, [driver, application], root, () => {
+    if (profile && existsSync(profile)) preserveCrashes(profile);
+  });
 });
 
 void test("shows the repository with its branch and changes", async () => {

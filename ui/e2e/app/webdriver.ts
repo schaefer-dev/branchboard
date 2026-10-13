@@ -33,6 +33,24 @@ export class Session {
     return new Session(base, response.sessionId);
   }
 
+  static async attach(base: string, debuggerAddress: string, timeoutMs = 90_000): Promise<Session> {
+    const response = await request<{ sessionId: string }>(
+      `${base}/session`,
+      "POST",
+      {
+        capabilities: {
+          alwaysMatch: {
+            browserName: "webview2",
+            "ms:edgeChromium": true,
+            "ms:edgeOptions": { debuggerAddress },
+          },
+        },
+      },
+      timeoutMs,
+    );
+    return new Session(base, response.sessionId);
+  }
+
   async end(): Promise<void> {
     await request(`${this.base}/session/${this.id}`, "DELETE");
   }

@@ -1,12 +1,12 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
-/** Owns the driver process and preserves failures during readiness and session creation. */
-export class Driver {
+/** Owns a child process and preserves failures during startup and session creation. */
+export class OwnedProcess {
   readonly child: ChildProcess;
   private readonly failure: Promise<never>;
   private readonly closed: Promise<void>;
-  private problem: Error | undefined;
+  protected problem: Error | undefined;
   private stopped = false;
 
   constructor(
@@ -47,10 +47,47 @@ export class Driver {
   }
 
   async guard<T>(operation: Promise<T>): Promise<T> {
-    if (this.problem) throw this.problem;
-    return Promise.race([operation, this.failure]);
+    return Promise.race([operation, this.problem ? Promise.reject(this.problem) : this.failure]);
   }
 
+  async stop(): Promise<void> {
+    this.stopped = true;
+    this.problem ??= new Error("Owned process stopped");
+    if (
+      process.platform === "win32" &&
+      this.child.pid &&
+      this.child.exitCode === null &&
+      this.child.signalCode === null
+    ) {
+      const result = spawnSync("taskkill", ["/PID", String(this.child.pid), "/T", "/F"], {
+        encoding: "utf8",
+        timeout: 5_000,
+      });
+      if (result.error || result.status !== 0) {
+        throw new Error(
+          `Process tree termination failed: ${result.error?.message ?? result.stderr}; temporary test data was retained`,
+        );
+      }
+    } else if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill();
+    const wait = async () => {
+      const controller = new AbortController();
+      try {
+        return await Promise.race([
+          this.closed.then(() => true),
+          delay(5_000, false, { signal: controller.signal }),
+        ]);
+      } finally {
+        controller.abort();
+      }
+    };
+    if (await wait()) return;
+    this.child.kill("SIGKILL");
+    if (!(await wait()))
+      throw new Error("Process did not terminate; temporary test data was retained");
+  }
+}
+
+export class Driver extends OwnedProcess {
   async waitReady(
     base: string,
     { timeoutMs = 10_000, requestTimeoutMs = 1_000, pollMs = 200 } = {},
@@ -79,25 +116,5 @@ export class Driver {
       throw new Error(`Driver readiness timed out after ${String(timeoutMs)}ms: ${lastError}`);
     };
     await this.guard(poll());
-  }
-
-  async stop(): Promise<void> {
-    this.stopped = true;
-    if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill();
-    const wait = async () => {
-      const controller = new AbortController();
-      try {
-        return await Promise.race([
-          this.closed.then(() => true),
-          delay(5_000, false, { signal: controller.signal }),
-        ]);
-      } finally {
-        controller.abort();
-      }
-    };
-    if (await wait()) return;
-    this.child.kill("SIGKILL");
-    if (!(await wait()))
-      throw new Error("Driver did not terminate; temporary test data was retained");
   }
 }
