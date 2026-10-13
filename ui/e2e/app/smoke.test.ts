@@ -8,23 +8,24 @@
 // Environment: BRANCHBOARD_APP (app binary), TAURI_DRIVER (default
 // `tauri-driver`), NATIVE_DRIVER (path to msedgedriver, optional).
 
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
 import { Keys, Session } from "./webdriver.ts";
+import { Driver } from "./driver.ts";
 
 const DRIVER_URL = "http://127.0.0.1:4444";
 const exe = process.platform === "win32" ? ".exe" : "";
 const app =
   process.env.BRANCHBOARD_APP ?? join(process.cwd(), "target", "debug", `branchboard${exe}`);
 
-let root: string;
+let root: string | undefined;
 let repo: string;
-let driver: ChildProcess | undefined;
+let driver: Driver | undefined;
 let session: Session | undefined;
 
 function git(cwd: string, ...args: string[]): string {
@@ -45,23 +46,34 @@ function git(cwd: string, ...args: string[]): string {
   return result.stdout;
 }
 
-async function waitForDriver(): Promise<void> {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    try {
-      await fetch(`${DRIVER_URL}/status`);
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-  }
-  throw new Error("tauri-driver did not start");
-}
-
 before(async () => {
+  const diagnostics = join(process.cwd(), "e2e-results", "smoke");
+  mkdirSync(diagnostics, { recursive: true });
+  writeFileSync(join(diagnostics, "driver.log"), "");
+  const log = (message: string) => {
+    appendFileSync(join(diagnostics, "driver.log"), message);
+    process.stdout.write(message);
+  };
+  writeFileSync(
+    join(diagnostics, "startup.json"),
+    JSON.stringify(
+      {
+        application: app,
+        driver: process.env.TAURI_DRIVER ?? "tauri-driver",
+        nativeDriver: process.env.NATIVE_DRIVER ?? null,
+        platform: process.platform,
+        node: process.version,
+      },
+      null,
+      2,
+    ),
+  );
   root = mkdtempSync(join(tmpdir(), "branchboard-smoke-"));
   repo = join(root, "smoke-repo");
   mkdirSync(repo);
   git(repo, "init", "--quiet", "--initial-branch=main");
+  git(repo, "config", "--local", "core.autocrlf", "false");
+  git(repo, "config", "--local", "core.eol", "lf");
   writeFileSync(join(repo, "README.md"), "# smoke\n");
   git(repo, "add", ".");
   git(repo, "commit", "--quiet", "-m", "init");
@@ -79,18 +91,27 @@ before(async () => {
   );
 
   const args = process.env.NATIVE_DRIVER ? ["--native-driver", process.env.NATIVE_DRIVER] : [];
-  driver = spawn(process.env.TAURI_DRIVER ?? "tauri-driver", args, {
-    stdio: "inherit",
-    env: { ...process.env, BRANCHBOARD_WORKSPACE_FILE: workspace },
-  });
-  await waitForDriver();
-  session = await Session.start(DRIVER_URL, app);
+  driver = new Driver(
+    process.env.TAURI_DRIVER ?? "tauri-driver",
+    args,
+    { ...process.env, BRANCHBOARD_WORKSPACE_FILE: workspace },
+    log,
+  );
+  try {
+    await driver.waitReady(DRIVER_URL);
+    session = await driver.guard(Session.start(DRIVER_URL, app));
+  } catch (error) {
+    log(
+      `Smoke-test startup failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+    );
+    throw error;
+  }
 });
 
 after(async () => {
   await session?.end().catch(() => undefined);
-  driver?.kill();
-  rmSync(root, { recursive: true, force: true });
+  await driver?.stop();
+  if (root) rmSync(root, { recursive: true, force: true });
 });
 
 void test("shows the repository with its branch and changes", async () => {

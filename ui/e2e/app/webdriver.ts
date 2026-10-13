@@ -19,12 +19,17 @@ export class Session {
     this.id = id;
   }
 
-  static async start(base: string, application: string): Promise<Session> {
-    const response = await request<{ sessionId: string }>(`${base}/session`, "POST", {
-      capabilities: {
-        alwaysMatch: { browserName: "wry", "tauri:options": { application } },
+  static async start(base: string, application: string, timeoutMs = 90_000): Promise<Session> {
+    const response = await request<{ sessionId: string }>(
+      `${base}/session`,
+      "POST",
+      {
+        capabilities: {
+          alwaysMatch: { browserName: "wry", "tauri:options": { application } },
+        },
       },
-    });
+      timeoutMs,
+    );
     return new Session(base, response.sessionId);
   }
 
@@ -72,15 +77,36 @@ export class Session {
   }
 }
 
-async function request<T>(url: string, method: string, body?: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const json = (await response.json()) as WebDriverResponse<T>;
-  if (!response.ok) {
-    throw new Error(`${method} ${url} failed: ${JSON.stringify(json.value)}`);
+async function request<T>(
+  url: string,
+  method: string,
+  body?: unknown,
+  timeoutMs = 10_000,
+): Promise<T> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    });
+    const text = await response.text();
+    let json: WebDriverResponse<T>;
+    try {
+      json = JSON.parse(text) as WebDriverResponse<T>;
+    } catch {
+      throw new Error(
+        `${method} ${url} returned invalid JSON (HTTP ${String(response.status)}): ${text}`,
+      );
+    }
+    if (!response.ok) {
+      throw new Error(`${method} ${url} failed: ${JSON.stringify(json.value)}`);
+    }
+    return json.value;
+  } catch (error) {
+    if (signal.aborted)
+      throw new Error(`${method} ${url} timed out after ${String(timeoutMs)}ms`, { cause: error });
+    throw error;
   }
-  return json.value;
 }

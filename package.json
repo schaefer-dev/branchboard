@@ -20,7 +20,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "fixtures": "cargo test -p branchboard --test ipc write_ -- --ignored",
-    "smoke": "node --test ui/e2e/app/smoke.test.ts"
+    "smoke": "node --test ui/e2e/app/smoke.test.ts",
+    "smoke:harness": "node --test ui/e2e/app/harness.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.3",

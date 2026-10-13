@@ -64,6 +64,9 @@ jobs:
       - name: Frontend tests
         run: pnpm test
 
+      - name: Smoke harness tests
+        run: pnpm smoke:harness
+
       # The fixtures record real git output; one platform is the reference.
       - name: E2E fixtures are up to date
         if: runner.os == 'macOS'
@@ -99,9 +102,19 @@ jobs:
         if: runner.os == 'Windows'
         run: cargo install tauri-driver --locked --version 2.1.0
 
-      - name: Full-stack smoke test
+      - name: Set up matching WebView2 driver
         if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          $env:NATIVE_DRIVER = Join-Path $env:EDGEWEBDRIVER "msedgedriver.exe"
-          pnpm smoke
+        run: ./.github/scripts/setup-webdriver.ps1
+
+      - name: Full-stack smoke test
+        if: runner.os == 'Windows'
+        run: pnpm smoke
+
+      - name: Upload smoke-test diagnostics
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-results-${{ matrix.os }}
+          path: e2e-results/smoke/
+          if-no-files-found: ignore
