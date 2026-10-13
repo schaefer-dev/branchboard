@@ -40,8 +40,8 @@ jobs:
       - name: Rust lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Rust tests (also regenerates TS bindings)
-        run: pnpm bindings && cargo test --workspace
+      - name: Export TS bindings
+        run: pnpm bindings
 
       - name: TS bindings are up to date
         shell: bash
@@ -51,6 +51,9 @@ jobs:
             echo "::error::Generated TS bindings are stale. Run 'pnpm bindings' and commit the result."
             exit 1
           fi
+
+      - name: Rust tests
+        run: cargo test --workspace
 
       - name: Frontend lint
         run: pnpm lint
