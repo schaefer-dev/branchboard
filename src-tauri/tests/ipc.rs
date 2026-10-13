@@ -70,6 +70,9 @@ impl Harness {
         let path = self.dir.path().join(name);
         std::fs::create_dir_all(&path).unwrap();
         git(&path, &["init", "--quiet", "--initial-branch=development"]);
+        // Persist these settings so commands invoked through IPC use them too.
+        git(&path, &["config", "--local", "core.autocrlf", "false"]);
+        git(&path, &["config", "--local", "core.eol", "lf"]);
         path.canonicalize().unwrap()
     }
 
@@ -94,8 +97,6 @@ fn git_at(repo: &Path, date: &str, args: &[&str]) {
             "user.email=tests@branchboard.invalid",
             "-c",
             "commit.gpgsign=false",
-            "-c",
-            "core.autocrlf=false",
         ])
         .args(args)
         .current_dir(repo)

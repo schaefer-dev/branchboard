@@ -28,6 +28,10 @@ impl TestRepo {
         };
         repo.run(&["init", "--quiet", "--initial-branch=main"])
             .await;
+        // Keep fixture bytes consistent regardless of the host's Git settings.
+        repo.run(&["config", "--local", "core.autocrlf", "false"])
+            .await;
+        repo.run(&["config", "--local", "core.eol", "lf"]).await;
         repo
     }
 

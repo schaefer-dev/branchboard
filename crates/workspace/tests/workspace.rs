@@ -22,6 +22,15 @@ async fn init_repo(git: &Git, dir: &Path) -> PathBuf {
         .output()
         .await
         .unwrap();
+    // Workspace operations must use the same LF policy as fixture setup.
+    for (key, value) in [("core.autocrlf", "false"), ("core.eol", "lf")] {
+        git.runner()
+            .command(["config", "--local", key, value])
+            .current_dir(dir)
+            .output()
+            .await
+            .unwrap();
+    }
     dir.canonicalize().unwrap()
 }
 

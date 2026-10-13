@@ -25,9 +25,10 @@ async fn status(repo: &TestRepo) -> StatusSnapshot {
 async fn stages_and_unstages_files_including_special_names() {
     let repo = TestRepo::init().await;
     repo.commit_file("tracked.txt", "one\n").await;
-    // `*` must be taken literally, not as a glob matching both files.
-    repo.write("star*.txt", "a\n");
-    repo.write("starfish.txt", "b\n");
+    // Brackets must be literal, not a glob matching the other file.
+    // Unlike `*`, these characters are also valid in Windows filenames.
+    repo.write("pattern[1].txt", "a\n");
+    repo.write("pattern1.txt", "b\n");
     repo.write("ordner mit ü/datei.txt", "c\n");
     repo.write("tracked.txt", "two\n");
 
@@ -36,7 +37,7 @@ async fn stages_and_unstages_files_including_special_names() {
     assert_eq!(before.unstaged.len(), 4);
 
     let paths = [
-        "star*.txt".to_owned(),
+        "pattern[1].txt".to_owned(),
         "ordner mit ü/datei.txt".to_owned(),
         "tracked.txt".to_owned(),
     ];
@@ -46,22 +47,22 @@ async fn stages_and_unstages_files_including_special_names() {
         listed(&staged.staged),
         vec![
             ("ordner mit ü/datei.txt", ChangeKind::Added),
-            ("star*.txt", ChangeKind::Added),
+            ("pattern[1].txt", ChangeKind::Added),
             ("tracked.txt", ChangeKind::Modified),
         ]
     );
     assert_eq!(
         listed(&staged.unstaged),
-        vec![("starfish.txt", ChangeKind::Untracked)]
+        vec![("pattern1.txt", ChangeKind::Untracked)]
     );
 
     repo.git
-        .unstage(&repo.path(), &["star*.txt".to_owned()], false)
+        .unstage(&repo.path(), &["pattern[1].txt".to_owned()], false)
         .await
         .unwrap();
     let after = status(&repo).await;
     assert_eq!(after.staged.len(), 2);
-    assert!(after.find_unstaged("star*.txt").is_some());
+    assert!(after.find_unstaged("pattern[1].txt").is_some());
 }
 
 #[tokio::test]
