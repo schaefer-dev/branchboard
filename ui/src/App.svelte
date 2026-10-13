@@ -2,6 +2,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { onMount } from "svelte";
 
+  import CommitsPane from "./features/branches/CommitsPane.svelte";
   import DiffPane from "./features/diff/DiffPane.svelte";
   import DropOverlay from "./features/repos/DropOverlay.svelte";
   import QuickSwitcher from "./features/repos/QuickSwitcher.svelte";
@@ -103,7 +104,11 @@
   <main class="panes">
     <RepoSidebar />
     <WorkPane />
-    <DiffPane />
+    {#if view.work === "branches"}
+      <CommitsPane />
+    {:else}
+      <DiffPane />
+    {/if}
   </main>
   <StatusBar />
 </div>

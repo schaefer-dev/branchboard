@@ -7,6 +7,7 @@ import {
   onRepoStatus,
   toAppError,
   type AppError,
+  type BranchCommits,
   type BranchList,
   type FetchUpdate,
   type RepoId,
@@ -24,6 +25,9 @@ export class BranchesStore {
   error = $state<AppError | null>(null);
   cursor = $state<string | null>(null);
   sort = $state<BranchSort>(readPref("branchSort", SORTS, "recent"));
+  /** Commits of the branch under the cursor. */
+  commits = $state<BranchCommits | null>(null);
+  commitsError = $state<AppError | null>(null);
   /** Branch being switched to. */
   switching = $state<string | null>(null);
   fetching = new SvelteSet<RepoId>();
@@ -34,6 +38,7 @@ export class BranchesStore {
   readonly current = $derived(this.list?.branches.find((branch) => branch.current) ?? null);
 
   private token = 0;
+  private commitsToken = 0;
 
   async init(): Promise<void> {
     await onRepoFetch((update) => {
@@ -55,6 +60,7 @@ export class BranchesStore {
     this.list = null;
     this.error = null;
     this.cursor = null;
+    this.commits = null;
     await this.reload();
   }
 
@@ -75,15 +81,40 @@ export class BranchesStore {
     writePref("branchSort", sort);
   }
 
+  select(name: string): void {
+    if (name === this.cursor) return;
+    this.cursor = name;
+    void this.loadCommits();
+  }
+
   move(delta: number): void {
     const index = this.branches.findIndex((branch) => branch.name === this.cursor);
     const next = this.branches[Math.max(0, Math.min(this.branches.length - 1, index + delta))];
-    if (next) this.cursor = next.name;
+    if (next) this.select(next.name);
   }
 
   moveTo(position: "first" | "last"): void {
     const branch = position === "first" ? this.branches[0] : this.branches.at(-1);
-    if (branch) this.cursor = branch.name;
+    if (branch) this.select(branch.name);
+  }
+
+  async loadCommits(): Promise<void> {
+    const repoId = this.repoId;
+    const name = this.cursor;
+    const token = ++this.commitsToken;
+    if (!repoId || !name) {
+      this.commits = null;
+      return;
+    }
+    try {
+      const commits = await api.getBranchCommits(repoId, name);
+      if (token === this.commitsToken) {
+        this.commits = commits;
+        this.commitsError = null;
+      }
+    } catch (error) {
+      if (token === this.commitsToken) this.commitsError = asAppError(error);
+    }
   }
 
   async switchTo(name: string): Promise<void> {
@@ -136,6 +167,8 @@ export class BranchesStore {
     if (!list.branches.some((branch) => branch.name === this.cursor)) {
       this.cursor = this.current?.name ?? this.branches[0]?.name ?? null;
     }
+    // Counts may have changed (fetch, switch, new commits).
+    void this.loadCommits();
   }
 }
 

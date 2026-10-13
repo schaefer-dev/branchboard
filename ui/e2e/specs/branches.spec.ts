@@ -45,8 +45,28 @@ test.describe("branches", () => {
     ).toBeVisible();
     await expect(branch(page, "chore/old-cleanup")).toContainText("gone");
     await expect(branch(page, "spike/local-only")).toContainText("local");
-    await expect(page.getByText("Compared with")).toBeVisible();
+    await expect(page.getByText("Compared with", { exact: true })).toBeVisible();
     await expect(page.getByText("Fetched 3 min ago")).toBeVisible();
+  });
+
+  test("shows the commits a branch is ahead and behind", async ({ page }) => {
+    const pane = page.getByRole("region", { name: "Branch commits" });
+    await expect(pane.getByText("feature/login-rate-limit", { exact: true })).toBeVisible();
+    await expect(
+      pane.getByRole("region", { name: "Ahead of origin/development" }).getByRole("listitem"),
+    ).toHaveCount(3);
+
+    await branch(page, "fix/header-overflow").click();
+    const ahead = pane.getByRole("region", { name: "Ahead of origin/development" });
+    await expect(ahead.getByRole("listitem")).toHaveCount(1);
+    await expect(ahead).toContainText("update header.css");
+    await expect(
+      pane.getByRole("region", { name: "Behind origin/development" }).getByRole("listitem"),
+    ).toHaveCount(2);
+
+    await branch(page, "development").click();
+    await expect(pane.getByText("Up to date with origin/development")).toBeVisible();
+    await expectCall(page, "get_branch_commits", { repoId: "api", branch: "development" });
   });
 
   test("sorts alphabetically and remembers the choice", async ({ page }) => {

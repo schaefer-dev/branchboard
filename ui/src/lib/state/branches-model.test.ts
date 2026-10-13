@@ -46,5 +46,6 @@ describe("timeAgo", () => {
     expect(timeAgo(now - 3 * 3600, now)).toBe("3 h ago");
     expect(timeAgo(now - 26 * 3600, now)).toBe("1 day ago");
     expect(timeAgo(now - 3 * 86400, now)).toBe("3 days ago");
+    expect(timeAgo(1_767_866_400, 1_767_866_400 + 40 * 86400)).toBe("Jan 8, 2026");
   });
 });

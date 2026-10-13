@@ -159,6 +159,19 @@ export class FakeBackend {
         });
       case "get_branches":
         return this.branchList(String(args.repoId));
+      case "get_branch_commits": {
+        const repo = this.repo(args.repoId);
+        const branch = String(args.branch);
+        const empty = { commits: [], truncated: false };
+        return (
+          this.state.commits[repo.id]?.[branch] ?? {
+            branch,
+            mainline: repo.mainline,
+            ahead: empty,
+            behind: null,
+          }
+        );
+      }
       case "switch_branch":
         return this.switchBranch(String(args.repoId), String(args.branch));
       case "fetch_repo":

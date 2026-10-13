@@ -1,6 +1,7 @@
 // Starting states for the fake backend, selected with `?scenario=<name>`.
 
 import type {
+  BranchCommits,
   BranchList,
   FileDiff,
   RepoView,
@@ -18,7 +19,10 @@ const recorded = changesFixture as unknown as {
 };
 
 /** Recorded from the real backend; `lastFetched` is set per scenario. */
-const recordedBranches = branchesFixture as unknown as BranchList;
+const recordedBranches = branchesFixture as unknown as {
+  list: BranchList;
+  commits: Record<string, BranchCommits>;
+};
 
 /** Three minutes ago, so screenshots show a stable "Fetched 3 min ago". */
 const recentFetch = () => Math.floor(Date.now() / 1000) - 3 * 60;
@@ -47,6 +51,8 @@ export interface Scenario {
   diffs: Record<string, Record<string, FileDiff>>;
   summaries: Record<string, SummaryState>;
   branches: Record<string, BranchList>;
+  /** Keyed by repo id, then branch name. */
+  commits: Record<string, Record<string, BranchCommits>>;
 }
 
 function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView {
@@ -116,10 +122,11 @@ function defaultScenario(): Scenario {
     diffs: { api: structuredClone(recorded.diffs) },
     summaries,
     branches: {
-      api: { ...structuredClone(recordedBranches), lastFetched: recentFetch() },
+      api: { ...structuredClone(recordedBranches.list), lastFetched: recentFetch() },
       web: singleBranch("development"),
       dotfiles: singleBranch("main"),
     },
+    commits: { api: structuredClone(recordedBranches.commits) },
   };
 }
 
@@ -135,6 +142,7 @@ function emptyScenario(): Scenario {
     diffs: {},
     summaries: {},
     branches: {},
+    commits: {},
   };
 }
 

@@ -163,7 +163,7 @@
       tabindex={0}
       onclick={(event: MouseEvent) => {
         const name = branchAt(event);
-        if (name) branches.cursor = name;
+        if (name) branches.select(name);
       }}
       ondblclick={(event: MouseEvent) => {
         const name = branchAt(event);
@@ -173,7 +173,7 @@
         const name = branchAt(event);
         if (!name) return;
         event.preventDefault();
-        branches.cursor = name;
+        branches.select(name);
         void showBranchMenu(name);
       }}
       onkeydown={onKeydown}

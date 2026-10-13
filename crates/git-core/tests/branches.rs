@@ -135,3 +135,32 @@ async fn fetches_and_records_the_time() {
     let after = repo.git.last_fetched(&repo.path()).await.unwrap();
     assert!(after.is_some());
 }
+
+#[tokio::test]
+async fn lists_commits_between_refs() {
+    let (repo, _remote) = with_remote().await;
+    let ahead = repo
+        .git
+        .log(&repo.path(), Some("origin/development"), "feature", 2)
+        .await
+        .unwrap();
+    assert_eq!(ahead.commits.len(), 2);
+    assert!(ahead.truncated);
+    assert_eq!(ahead.commits[0].subject, "update feature.txt");
+    assert_eq!(ahead.commits[0].author, "Test");
+
+    let behind = repo
+        .git
+        .log(&repo.path(), Some("feature"), "origin/development", 100)
+        .await
+        .unwrap();
+    assert_eq!(behind.commits, vec![]);
+    assert!(!behind.truncated);
+
+    let all = repo
+        .git
+        .log(&repo.path(), None, "feature", 100)
+        .await
+        .unwrap();
+    assert_eq!(all.commits.len(), 4);
+}

@@ -1,83 +1,223 @@
 {
-  "branches": [
-    {
-      "committedAt": 1767348000,
-      "current": false,
-      "mainline": {
-        "ahead": 1,
-        "behind": 2
+  "commits": {
+    "chore/old-cleanup": {
+      "ahead": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767348000,
+            "oid": "f228f569a576990d2944332c6e11d82687b7bc52",
+            "shortOid": "f228f56",
+            "subject": "update header.css"
+          }
+        ],
+        "truncated": false
       },
-      "name": "chore/old-cleanup",
-      "upstream": {
-        "kind": "gone",
-        "name": "origin/chore/old-cleanup"
-      }
+      "behind": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767520800,
+            "oid": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+            "shortOid": "4c14545",
+            "subject": "update app.txt"
+          },
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767434400,
+            "oid": "d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9",
+            "shortOid": "d5bef54",
+            "subject": "update app.txt"
+          }
+        ],
+        "truncated": false
+      },
+      "branch": "chore/old-cleanup",
+      "mainline": "origin/development"
     },
-    {
-      "committedAt": 1767520800,
-      "current": false,
-      "mainline": {
-        "ahead": 0,
-        "behind": 0
+    "development": {
+      "ahead": {
+        "commits": [],
+        "truncated": false
       },
-      "name": "development",
-      "upstream": {
-        "counts": {
+      "behind": {
+        "commits": [],
+        "truncated": false
+      },
+      "branch": "development",
+      "mainline": "origin/development"
+    },
+    "feature/login-rate-limit": {
+      "ahead": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767866400,
+            "oid": "4355c8241cf0084cc76336af37d55fdfe14b4255",
+            "shortOid": "4355c82",
+            "subject": "update login.txt"
+          },
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767780000,
+            "oid": "f08bbbf0bd06260ed019eff9a7164d02803e8242",
+            "shortOid": "f08bbbf",
+            "subject": "update login.txt"
+          },
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767693600,
+            "oid": "3c85570cbc10e7a039fbde2d94f0518b67fad8a3",
+            "shortOid": "3c85570",
+            "subject": "update login.txt"
+          }
+        ],
+        "truncated": false
+      },
+      "behind": {
+        "commits": [],
+        "truncated": false
+      },
+      "branch": "feature/login-rate-limit",
+      "mainline": "origin/development"
+    },
+    "fix/header-overflow": {
+      "ahead": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767348000,
+            "oid": "f228f569a576990d2944332c6e11d82687b7bc52",
+            "shortOid": "f228f56",
+            "subject": "update header.css"
+          }
+        ],
+        "truncated": false
+      },
+      "behind": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767520800,
+            "oid": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+            "shortOid": "4c14545",
+            "subject": "update app.txt"
+          },
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767434400,
+            "oid": "d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9",
+            "shortOid": "d5bef54",
+            "subject": "update app.txt"
+          }
+        ],
+        "truncated": false
+      },
+      "branch": "fix/header-overflow",
+      "mainline": "origin/development"
+    },
+    "spike/local-only": {
+      "ahead": {
+        "commits": [
+          {
+            "author": "Branchboard Tests",
+            "authoredAt": 1767607200,
+            "oid": "4ac939df8a55437e91f1dc33aeef07b8244656a6",
+            "shortOid": "4ac939d",
+            "subject": "update spike.txt"
+          }
+        ],
+        "truncated": false
+      },
+      "behind": {
+        "commits": [],
+        "truncated": false
+      },
+      "branch": "spike/local-only",
+      "mainline": "origin/development"
+    }
+  },
+  "list": {
+    "branches": [
+      {
+        "committedAt": 1767348000,
+        "current": false,
+        "mainline": {
+          "ahead": 1,
+          "behind": 2
+        },
+        "name": "chore/old-cleanup",
+        "upstream": {
+          "kind": "gone",
+          "name": "origin/chore/old-cleanup"
+        }
+      },
+      {
+        "committedAt": 1767520800,
+        "current": false,
+        "mainline": {
           "ahead": 0,
           "behind": 0
         },
-        "kind": "tracking",
-        "name": "origin/development"
-      }
-    },
-    {
-      "committedAt": 1767866400,
-      "current": true,
-      "mainline": {
-        "ahead": 3,
-        "behind": 0
+        "name": "development",
+        "upstream": {
+          "counts": {
+            "ahead": 0,
+            "behind": 0
+          },
+          "kind": "tracking",
+          "name": "origin/development"
+        }
       },
-      "name": "feature/login-rate-limit",
-      "upstream": {
-        "counts": {
+      {
+        "committedAt": 1767866400,
+        "current": true,
+        "mainline": {
+          "ahead": 3,
+          "behind": 0
+        },
+        "name": "feature/login-rate-limit",
+        "upstream": {
+          "counts": {
+            "ahead": 1,
+            "behind": 0
+          },
+          "kind": "tracking",
+          "name": "origin/feature/login-rate-limit"
+        }
+      },
+      {
+        "committedAt": 1767348000,
+        "current": false,
+        "mainline": {
+          "ahead": 1,
+          "behind": 2
+        },
+        "name": "fix/header-overflow",
+        "upstream": {
+          "counts": {
+            "ahead": 0,
+            "behind": 0
+          },
+          "kind": "tracking",
+          "name": "origin/fix/header-overflow"
+        }
+      },
+      {
+        "committedAt": 1767607200,
+        "current": false,
+        "mainline": {
           "ahead": 1,
           "behind": 0
         },
-        "kind": "tracking",
-        "name": "origin/feature/login-rate-limit"
+        "name": "spike/local-only",
+        "upstream": {
+          "kind": "none"
+        }
       }
-    },
-    {
-      "committedAt": 1767348000,
-      "current": false,
-      "mainline": {
-        "ahead": 1,
-        "behind": 2
-      },
-      "name": "fix/header-overflow",
-      "upstream": {
-        "counts": {
-          "ahead": 0,
-          "behind": 0
-        },
-        "kind": "tracking",
-        "name": "origin/fix/header-overflow"
-      }
-    },
-    {
-      "committedAt": 1767607200,
-      "current": false,
-      "mainline": {
-        "ahead": 1,
-        "behind": 0
-      },
-      "name": "spike/local-only",
-      "upstream": {
-        "kind": "none"
-      }
-    }
-  ],
-  "lastFetched": null,
-  "mainline": "origin/development",
-  "mainlineExists": true
+    ],
+    "lastFetched": null,
+    "mainline": "origin/development",
+    "mainlineExists": true
+  }
 }

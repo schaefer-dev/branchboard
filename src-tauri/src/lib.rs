@@ -119,6 +119,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::unstage_paths,
             commands::discard_paths,
             commands::get_branches,
+            commands::get_branch_commits,
             commands::switch_branch,
             commands::fetch_repo,
             commands::set_mainline,

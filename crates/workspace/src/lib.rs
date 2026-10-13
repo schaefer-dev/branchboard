@@ -24,7 +24,8 @@ pub use registry::{
     Added, DEFAULT_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId, Settings,
 };
 pub use snapshot::{
-    FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate, WorkspaceSnapshot,
+    BranchCommits, FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate,
+    WorkspaceSnapshot,
 };
 
 use crate::monitor::Monitor;
@@ -234,6 +235,31 @@ impl Workspace {
     pub async fn branches(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
         let (path, mainline) = self.repo_path_and_mainline(id).await?;
         Ok(git.branches(&path, &mainline).await?)
+    }
+
+    /// Commits `branch` is ahead of and behind the mainline.
+    pub async fn branch_commits(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        branch: &str,
+    ) -> Result<BranchCommits, WorkspaceError> {
+        const LIMIT: usize = 100;
+        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let list = git.branches(&path, &mainline).await?;
+        let (ahead, behind) = if list.mainline_exists {
+            let ahead = git.log(&path, Some(&mainline), branch, LIMIT).await?;
+            let behind = git.log(&path, Some(branch), &mainline, LIMIT).await?;
+            (ahead, Some(behind))
+        } else {
+            (git.log(&path, None, branch, LIMIT).await?, None)
+        };
+        Ok(BranchCommits {
+            branch: branch.to_owned(),
+            mainline,
+            ahead,
+            behind,
+        })
     }
 
     /// Switches to `branch` and returns the updated branch list. The new

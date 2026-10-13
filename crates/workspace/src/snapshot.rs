@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use git_core::{RepoSummary, StatusSnapshot};
+use git_core::{CommitList, RepoSummary, StatusSnapshot};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -112,4 +112,19 @@ pub enum FetchState {
         message: String,
         detail: Option<String>,
     },
+}
+
+/// How a branch differs from the mainline, commit by commit.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BranchCommits {
+    pub branch: String,
+    pub mainline: String,
+    /// Commits on the branch but not on the mainline. If the mainline does
+    /// not exist, simply the latest commits of the branch.
+    pub ahead: CommitList,
+    /// Commits on the mainline but not on the branch; `None` if the mainline
+    /// does not exist.
+    pub behind: Option<CommitList>,
 }

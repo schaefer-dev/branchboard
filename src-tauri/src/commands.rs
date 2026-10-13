@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use git_core::{BranchList, DiffRequest, FileDiff, StatusSnapshot};
 use tauri::State;
-use workspace::{Added, GroupId, RepoId, WorkspaceSnapshot};
+use workspace::{Added, BranchCommits, GroupId, RepoId, WorkspaceSnapshot};
 
 use crate::dto::{AddRepoResult, AppInfo, GitInfo};
 use crate::error::AppError;
@@ -230,6 +230,19 @@ pub async fn get_branches(
 ) -> CommandResult<BranchList> {
     let git = state.git().await?;
     Ok(state.workspace.branches(git, &repo_id).await?)
+}
+
+#[tauri::command]
+pub async fn get_branch_commits(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    branch: String,
+) -> CommandResult<BranchCommits> {
+    let git = state.git().await?;
+    Ok(state
+        .workspace
+        .branch_commits(git, &repo_id, &branch)
+        .await?)
 }
 
 #[tauri::command]

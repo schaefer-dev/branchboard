@@ -634,15 +634,26 @@ fn lists_switches_and_fetches_branches() {
     assert_eq!(settings["settings"], json!({ "fetchIntervalMinutes": 0 }));
 }
 
-/// The branch list of [`branch_repo`]; `lastFetched` is cleared because it
-/// depends on when the test ran.
+/// The branch list of [`branch_repo`] and the commits of each branch;
+/// `lastFetched` is cleared because it depends on when the test ran.
 fn record_branch_fixture() -> Value {
     let harness = Harness::new();
     let repo = branch_repo(&harness);
     let repo_id = harness.add(&repo);
     let mut list = harness.ok("get_branches", json!({ "repoId": repo_id }));
     list["lastFetched"] = Value::Null;
-    list
+    let mut commits = serde_json::Map::new();
+    for branch in list["branches"].as_array().unwrap() {
+        let name = branch["name"].as_str().unwrap();
+        commits.insert(
+            name.to_owned(),
+            harness.ok(
+                "get_branch_commits",
+                json!({ "repoId": repo_id, "branch": name }),
+            ),
+        );
+    }
+    json!({ "list": list, "commits": commits })
 }
 
 #[test]

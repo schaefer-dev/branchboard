@@ -12,7 +12,10 @@ export function sortBranches(branches: readonly Branch[], sort: BranchSort): Bra
   return sorted.sort((a, b) => b.committedAt - a.committedAt || byName(a, b));
 }
 
-/** "just now", "5 min ago", "3 h ago", "2 days ago" for a Unix timestamp. */
+/**
+ * "just now", "5 min ago", "3 h ago", "2 days ago" for a Unix timestamp; a
+ * date such as "Jan 8, 2026" from 30 days on.
+ */
 export function timeAgo(seconds: number, now: number = Date.now() / 1000): string {
   const elapsed = Math.max(0, now - seconds);
   if (elapsed < 60) return "just now";
@@ -21,5 +24,12 @@ export function timeAgo(seconds: number, now: number = Date.now() / 1000): strin
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${String(hours)} h ago`;
   const days = Math.floor(hours / 24);
+  if (days >= 30) {
+    return new Date(seconds * 1000).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
   return days === 1 ? "1 day ago" : `${String(days)} days ago`;
 }

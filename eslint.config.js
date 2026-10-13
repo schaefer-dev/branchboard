@@ -34,6 +34,8 @@ export default ts.config(
     rules: {
       // `let { x = $bindable() } = $props()` is a rune, not a default value.
       "@typescript-eslint/no-useless-default-assignment": "off",
+      // `{@render snippet()}` is a template tag, not a misused void value.
+      "@typescript-eslint/no-confusing-void-expression": "off",
     },
   },
   {

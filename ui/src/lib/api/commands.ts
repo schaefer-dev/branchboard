@@ -5,6 +5,7 @@
 import { call } from "./client";
 import type { AddRepoResult } from "./generated/AddRepoResult";
 import type { AppInfo } from "./generated/AppInfo";
+import type { BranchCommits } from "./generated/BranchCommits";
 import type { BranchList } from "./generated/BranchList";
 import type { DiffRequest } from "./generated/DiffRequest";
 import type { FileDiff } from "./generated/FileDiff";
@@ -50,6 +51,8 @@ export const api = {
     call<StatusSnapshot>("discard_paths", { repoId, paths }),
 
   getBranches: (repoId: RepoId) => call<BranchList>("get_branches", { repoId }),
+  getBranchCommits: (repoId: RepoId, branch: string) =>
+    call<BranchCommits>("get_branch_commits", { repoId, branch }),
   switchBranch: (repoId: RepoId, branch: string) =>
     call<BranchList>("switch_branch", { repoId, branch }),
   fetchRepo: (repoId: RepoId) => call<BranchList>("fetch_repo", { repoId }),
