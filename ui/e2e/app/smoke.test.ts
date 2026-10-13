@@ -16,6 +16,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +26,8 @@ import assert from "node:assert/strict";
 
 import { Keys, Session } from "./webdriver.ts";
 import { Driver, OwnedProcess } from "./driver.ts";
+
+import { WindowsWebView2 } from "./windows.ts";
 
 import { availablePort, cleanup, waitDebuggingReady } from "./attach.ts";
 
@@ -40,6 +43,10 @@ let driver: Driver | undefined;
 let session: Session | undefined;
 let application: OwnedProcess | undefined;
 let profile: string | undefined;
+let windows: WindowsWebView2 | undefined;
+const recordWindows = (event: string, data: unknown) => {
+  appendFileSync(join(diagnostics, "windows.jsonl"), `${JSON.stringify({ event, data })}\n`);
+};
 
 function git(cwd: string, ...args: string[]): string {
   const result = spawnSync(
@@ -80,7 +87,7 @@ before(async () => {
       2,
     ),
   );
-  root = mkdtempSync(join(tmpdir(), "branchboard-smoke-"));
+  root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "branchboard-smoke-"));
   repo = join(root, "smoke-repo");
   mkdirSync(repo);
   git(repo, "init", "--quiet", "--initial-branch=main");
@@ -112,7 +119,11 @@ before(async () => {
   let phase = "driver readiness";
   try {
     if (process.platform === "win32") {
+      phase = "Windows WebView2 configuration";
       profile = join(root, "webview2-profile");
+      mkdirSync(profile);
+      profile = realpathSync.native(profile);
+      writeFileSync(join(diagnostics, "windows.jsonl"), "");
       const port = await availablePort();
       const debuggerAddress = `127.0.0.1:${String(port)}`;
       const browserLog = join(diagnostics, "browser.log");
@@ -122,21 +133,17 @@ before(async () => {
         join(diagnostics, "debugging.json"),
         JSON.stringify({ debuggerAddress, profile, browserArguments }, null, 2),
       );
-      application = new OwnedProcess(
-        app,
-        [],
-        {
-          ...process.env,
-          BRANCHBOARD_WORKSPACE_FILE: workspace,
-          WEBVIEW2_USER_DATA_FOLDER: profile,
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: browserArguments,
-          TAURI_WEBVIEW_AUTOMATION: "true",
-        },
-        (message) => {
-          appendFileSync(join(diagnostics, "application.log"), message);
-          process.stdout.write(message);
-        },
-      );
+      windows = new WindowsWebView2(app, profile, browserArguments, recordWindows);
+      const childEnv = windows.prepare({
+        ...process.env,
+        BRANCHBOARD_WORKSPACE_FILE: workspace,
+        TAURI_WEBVIEW_AUTOMATION: "true",
+      });
+      application = new OwnedProcess(app, [], childEnv, (message) => {
+        appendFileSync(join(diagnostics, "application.log"), message);
+        process.stdout.write(message);
+      });
+      phase = "application startup and driver readiness";
       await application.guard(driver.waitReady(DRIVER_URL));
       phase = "WebView2 debugging endpoint readiness";
       await driver.guard(
@@ -174,9 +181,28 @@ after(async () => {
       } else if (entry.isDirectory()) preserveCrashes(source);
     }
   };
-  await cleanup(session, [driver, application], root, () => {
-    if (profile && existsSync(profile)) preserveCrashes(profile);
-  });
+  try {
+    windows?.captureProcesses();
+  } catch (error) {
+    recordWindows("process-capture-failed", String(error));
+  }
+  await cleanup(
+    session,
+    [driver, application],
+    root,
+    () => {
+      if (profile && existsSync(profile)) preserveCrashes(profile);
+    },
+    {
+      stopProfileProcesses: async () => {
+        await windows?.stopProfileProcesses();
+      },
+      restore: () => {
+        windows?.restore();
+      },
+      record: recordWindows,
+    },
+  );
 });
 
 void test("shows the repository with its branch and changes", async () => {

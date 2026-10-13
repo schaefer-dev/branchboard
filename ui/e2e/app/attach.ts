@@ -1,6 +1,7 @@
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
-import { rmSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { inspect } from "node:util";
 
 import { OwnedProcess } from "./driver.ts";
 import { Session } from "./webdriver.ts";
@@ -40,12 +41,19 @@ export async function waitDebuggingReady(
       await app.guard(Promise.resolve());
       try {
         const read = async (path: string): Promise<unknown> => {
-          const response = await fetch(`${base}/json/${path}`, {
-            signal: AbortSignal.timeout(
-              Math.min(requestTimeoutMs, Math.max(1, deadline - Date.now())),
-            ),
-          });
-          const body = await response.text();
+          const url = `${base}/json/${path}`;
+          let response: Response;
+          let body: string;
+          try {
+            response = await fetch(url, {
+              signal: AbortSignal.timeout(
+                Math.min(requestTimeoutMs, Math.max(1, deadline - Date.now())),
+              ),
+            });
+            body = await response.text();
+          } catch (error) {
+            throw new Error(`${url}: ${inspect(error, { depth: 5 })}`, { cause: error });
+          }
           record(path, body);
           if (!response.ok) invalid(`${path}: HTTP ${String(response.status)}: ${body}`);
           try {
@@ -97,25 +105,68 @@ export async function waitDebuggingReady(
   await app.guard(poll());
 }
 
+interface CleanupOptions {
+  stopProfileProcesses?: () => Promise<void>;
+  restore?: () => void;
+  record?: (event: string, data: unknown) => void;
+  remove?: typeof rm;
+}
+
 /** Stop every owned process even if another fails; delete data only after all stop. */
 export async function cleanup(
   session: Session | undefined,
   processes: (OwnedProcess | undefined)[],
   root: string | undefined,
   beforeRemove: () => void = () => undefined,
+  {
+    stopProfileProcesses = () => Promise.resolve(),
+    restore = () => {},
+    record = () => {},
+    remove = rm,
+  }: CleanupOptions = {},
 ): Promise<void> {
-  await session?.end().catch(() => undefined);
+  const failures: unknown[] = [];
+  await session?.end().catch((error: unknown) => {
+    record("session-end-failed", inspect(error));
+  });
   const results = await Promise.allSettled(
     processes.map(async (process) => {
       await process?.stop();
     }),
   );
-  const failures = results.filter((result) => result.status === "rejected");
+  for (const result of results)
+    if (result.status === "rejected") failures.push(result.reason as unknown);
+  try {
+    await stopProfileProcesses();
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    beforeRemove();
+  } catch (error) {
+    failures.push(error);
+  }
+  // Restoration must run even when process shutdown or crash-report copying failed.
+  try {
+    restore();
+  } catch (error) {
+    failures.push(error);
+  }
+  if (!failures.length && root) {
+    try {
+      await remove(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  record("cleanup", {
+    root,
+    retained: failures.length > 0,
+    errors: failures.map((error) => inspect(error, { depth: 5 })),
+  });
   if (failures.length)
     throw new AggregateError(
-      failures.map((result) => result.reason as unknown),
-      "Process cleanup failed; temporary test data was retained",
+      failures,
+      `Smoke cleanup failed; temporary test data was retained at ${root ?? "unknown location"}`,
     );
-  beforeRemove();
-  if (root) rmSync(root, { recursive: true, force: true });
 }

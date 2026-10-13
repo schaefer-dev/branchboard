@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { test, type TestContext } from "node:test";
 
 import { Driver } from "./driver.ts";
+import { WindowsWebView2, matchesProfile, type WindowsCommand } from "./windows.ts";
 import { Session } from "./webdriver.ts";
 
 async function server(
@@ -404,4 +405,343 @@ void test("allocated debugging port can be bound on loopback", async (t) => {
         });
       }),
   );
+});
+
+const windowsProfile = String.raw`C:\Smoke Test\unique-profile`;
+const browserArguments = "--remote-debugging-port=9222 --remote-debugging-address=127.0.0.1";
+
+function windowsHarness(elevated = true, run?: WindowsCommand) {
+  const calls: { action: string; payload: Record<string, unknown>; timeoutMs?: number }[] = [];
+  const events: { event: string; data: unknown }[] = [];
+  const snapshot = {
+    elevated,
+    values: [
+      {
+        path: "AdditionalBrowserArguments",
+        exists: true,
+        kind: "ExpandString",
+        value: "original arguments",
+      },
+      { path: "UserDataFolder", exists: false, kind: null, value: null },
+    ],
+    createdKeys: ["UserDataFolder"],
+  };
+  const scope = new WindowsWebView2(
+    String.raw`D:\app\branchboard.exe`,
+    windowsProfile,
+    browserArguments,
+    (event, data) => {
+      events.push({ event, data });
+    },
+    (action, payload, timeoutMs) => {
+      calls.push({ action, payload, timeoutMs });
+      if (run) return run(action, payload, timeoutMs);
+      if (action === "snapshot") return snapshot;
+      if (action === "processes") return [];
+      return undefined;
+    },
+  );
+  return { scope, calls, events, snapshot };
+}
+
+void test("elevated WebView2 uses scoped policies and restores original values and types", () => {
+  const { scope, calls, snapshot } = windowsHarness();
+  const env = {
+    PATH: "original-path",
+    WEBVIEW2_USER_DATA_FOLDER: "old-profile",
+    webview2_additional_browser_arguments: "old-arguments",
+  };
+  assert.deepEqual(scope.prepare(env), { PATH: "original-path" });
+  assert.equal(env.WEBVIEW2_USER_DATA_FOLDER, "old-profile");
+  assert.deepEqual(
+    calls.map((call) => call.action),
+    ["snapshot", "configure"],
+  );
+  assert.deepEqual(calls[1]?.payload, {
+    application: "branchboard.exe",
+    profile: windowsProfile,
+    browserArguments,
+  });
+  scope.restore();
+  assert.deepEqual(calls[2]?.payload.snapshot, snapshot);
+  scope.restore();
+  assert.equal(calls.length, 3);
+});
+
+void test("non-elevated WebView2 keeps child-only environment configuration", () => {
+  const { scope, calls } = windowsHarness(false);
+  assert.deepEqual(scope.prepare({ PATH: "original" }), {
+    PATH: "original",
+    WEBVIEW2_USER_DATA_FOLDER: windowsProfile,
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: browserArguments,
+  });
+  scope.restore();
+  assert.deepEqual(
+    calls.map((call) => call.action),
+    ["snapshot"],
+  );
+});
+
+void test("partial or denied policy setup rolls back before propagating the failure", () => {
+  for (const message of ["second registry write failed", "access denied"]) {
+    const { scope, calls } = windowsHarness(true, (action) => {
+      if (action === "snapshot") return { elevated: true, values: [], createdKeys: [] };
+      if (action === "configure") throw new Error(message);
+    });
+    assert.throws(() => scope.prepare({}), new RegExp(message));
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["snapshot", "configure", "restore"],
+    );
+  }
+});
+
+void test("failed rollback retains the snapshot for a later restoration attempt", () => {
+  let attempts = 0;
+  const { scope } = windowsHarness(true, (action) => {
+    if (action === "snapshot") return { elevated: true, values: [], createdKeys: [] };
+    if (action === "configure") throw new Error("write failed");
+    if (action === "restore" && attempts++ === 0) throw new Error("restore failed");
+  });
+  assert.throws(() => scope.prepare({}), /setup and rollback failed/);
+  scope.restore();
+  assert.equal(attempts, 2);
+});
+
+for (const [commandLine, name, expected] of [
+  [
+    String.raw`msedgewebview2.exe --user-data-dir="C:\Smoke Test\unique-profile" --other`,
+    "msedgewebview2.exe",
+    true,
+  ],
+  [
+    String.raw`msedgewebview2.exe --user-data-dir="c:/smoke test/UNIQUE-PROFILE/"`,
+    "MSEDGEWEBVIEW2.EXE",
+    true,
+  ],
+  [
+    String.raw`msedgewebview2.exe --user-data-dir="C:\Smoke Test\unique-profile-other"`,
+    "msedgewebview2.exe",
+    false,
+  ],
+  [
+    String.raw`msedgewebview2.exe --other="C:\Smoke Test\unique-profile"`,
+    "msedgewebview2.exe",
+    false,
+  ],
+  [String.raw`other.exe --user-data-dir="C:\Smoke Test\unique-profile"`, "other.exe", false],
+  [null, "msedgewebview2.exe", false],
+] as const) {
+  void test(`profile matching ${String(commandLine)} (${name})`, () => {
+    assert.equal(
+      matchesProfile({ pid: 1, parentPid: 2, name, commandLine }, windowsProfile),
+      expected,
+    );
+  });
+}
+
+void test("profile matching accepts an unquoted argument and rejects partial arguments", () => {
+  const process = {
+    pid: 1,
+    parentPid: 2,
+    name: "msedgewebview2.exe",
+    commandLine: String.raw`msedgewebview2.exe --user-data-dir=C:\smoke\profile --other`,
+  };
+  assert.equal(matchesProfile(process, String.raw`C:\smoke\profile`), true);
+  assert.equal(
+    matchesProfile(
+      { ...process, commandLine: process.commandLine.replace(" --user", " --fake-user") },
+      String.raw`C:\smoke\profile`,
+    ),
+    false,
+  );
+});
+
+void test("browser cleanup kills only the unique profile and verifies disappearance", async () => {
+  const owned = {
+    pid: 42,
+    parentPid: 7,
+    name: "msedgewebview2.exe",
+    commandLine: `msedgewebview2.exe --user-data-dir="${windowsProfile}"`,
+  };
+  const unrelated = {
+    ...owned,
+    pid: 99,
+    commandLine: "msedgewebview2.exe --user-data-dir=C:\\other",
+  };
+  let killed = false;
+  const { scope, calls, events } = windowsHarness(true, (action) => {
+    if (action === "processes") return killed ? [unrelated] : [owned, unrelated];
+    if (action === "kill") killed = true;
+  });
+  await scope.stopProfileProcesses();
+  assert.deepEqual(
+    calls.filter((call) => call.action === "kill").map((call) => call.payload.pid),
+    [42],
+  );
+  assert.ok(events.some((entry) => entry.event === "profile-processes-stopped"));
+  assert.ok(calls.every((call) => call.timeoutMs !== undefined && call.timeoutMs <= 5_000));
+});
+
+void test("browser cleanup has a bounded deadline when a profile process survives", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 });
+  const { scope } = windowsHarness(true, (action) => {
+    if (action === "processes")
+      return [
+        {
+          pid: 42,
+          parentPid: 7,
+          name: "msedgewebview2.exe",
+          commandLine: `msedgewebview2.exe --user-data-dir="${windowsProfile}"`,
+        },
+      ];
+    if (action === "kill") t.mock.timers.setTime(5_000);
+  });
+  await assert.rejects(scope.stopProfileProcesses(), /within 5000ms.*retained/);
+});
+
+void test("cleanup restores policy and preserves data after browser shutdown failure", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "browser-cleanup-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const order: string[] = [];
+  await assert.rejects(
+    cleanup(
+      undefined,
+      [],
+      root,
+      () => {
+        order.push("crashes");
+      },
+      {
+        stopProfileProcesses: () => {
+          order.push("browsers");
+          return Promise.reject(new Error("browser survived"));
+        },
+        restore: () => {
+          order.push("restore");
+        },
+      },
+    ),
+    /temporary test data was retained/,
+  );
+  assert.deepEqual(order, ["browsers", "crashes", "restore"]);
+  assert.equal(existsSync(root), true);
+});
+
+void test("cleanup restores policies when crash preservation fails", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "crash-copy-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  let restored = false;
+  await assert.rejects(
+    cleanup(
+      undefined,
+      [],
+      root,
+      () => {
+        throw new Error("copy failed");
+      },
+      {
+        restore: () => {
+          restored = true;
+        },
+      },
+    ),
+    /temporary test data was retained/,
+  );
+  assert.equal(restored, true);
+  assert.equal(existsSync(root), true);
+});
+
+void test("cleanup retains data and records policy restoration failures", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "restore-failure-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const records: unknown[] = [];
+  await assert.rejects(
+    cleanup(undefined, [], root, undefined, {
+      restore: () => {
+        throw new Error("policy restore denied");
+      },
+      record: (_event, data) => {
+        records.push(data);
+      },
+    }),
+    /temporary test data was retained/,
+  );
+  assert.match(JSON.stringify(records), /policy restore denied/);
+  assert.equal(existsSync(root), true);
+});
+
+void test("debugging failures include the endpoint and nested connection error", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 });
+  t.mock.method(globalThis, "fetch", () => {
+    t.mock.timers.setTime(10_000);
+    return Promise.reject(
+      new TypeError("fetch failed", {
+        cause: Object.assign(new Error("connection refused"), { code: "ECONNREFUSED" }),
+      }),
+    );
+  });
+  await assert.rejects(
+    waitDebuggingReady(driver(t), MOCK_BASE, { timeoutMs: 10_000, pollMs: 0 }),
+    /http:\/\/mock-driver\/json\/version:[\s\S]*ECONNREFUSED/,
+  );
+});
+
+void test("browser cleanup kills root trees rather than each child separately", async () => {
+  const browser = {
+    pid: 42,
+    parentPid: 7,
+    name: "msedgewebview2.exe",
+    commandLine: `msedgewebview2.exe --user-data-dir="${windowsProfile}"`,
+  };
+  let killed = false;
+  const { scope, calls } = windowsHarness(true, (action) => {
+    if (action === "processes")
+      return killed ? [] : [browser, { ...browser, pid: 43, parentPid: 42 }];
+    if (action === "kill") killed = true;
+  });
+  await scope.stopProfileProcesses();
+  assert.deepEqual(
+    calls.filter((call) => call.action === "kill").map((call) => call.payload.pid),
+    [42],
+  );
+});
+
+void test("cleanup uses bounded removal retries and restores policy before deletion", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "cleanup-remove-"));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  let restored = false;
+  const records: unknown[] = [];
+  await assert.rejects(
+    cleanup(undefined, [], root, undefined, {
+      restore: () => {
+        restored = true;
+      },
+      remove: (path, options) => {
+        assert.equal(restored, true);
+        assert.equal(path, root);
+        assert.deepEqual(options, {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 100,
+        });
+        return Promise.reject(Object.assign(new Error("profile locked"), { code: "EPERM" }));
+      },
+      record: (_event, data) => {
+        records.push(data);
+      },
+    }),
+    new RegExp(root),
+  );
+  assert.equal(existsSync(root), true);
+  assert.match(JSON.stringify(records), /EPERM/);
 });
