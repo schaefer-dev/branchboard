@@ -232,7 +232,7 @@ void test("shows the repository with its branch and changes", async () => {
 void test("stages a file in the real repository", async () => {
   assert.ok(session);
   await session.click('[data-key="unstaged:hello.txt"]');
-  await session.type('[role="listbox"]', Keys.space);
+  await session.type('[role="listbox"][aria-label="Changed files"]', Keys.space);
   await session.waitFor(
     "the staged file",
     `return document.querySelector('[data-key="staged:hello.txt"]') !== null;`,
