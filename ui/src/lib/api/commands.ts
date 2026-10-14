@@ -67,6 +67,8 @@ export const api = {
   setMainline: (repoId: RepoId, mainline: string | null) =>
     call<WorkspaceSnapshot>("set_mainline", { repoId, mainline }),
   setFetchInterval: (minutes: number) => call<WorkspaceSnapshot>("set_fetch_interval", { minutes }),
+  setTerminalFontSize: (size: number) =>
+    call<WorkspaceSnapshot>("set_terminal_font_size", { size }),
 
   getAgents: () => call<AgentsSnapshot>("get_agents"),
   openInHerdr: (repoId: RepoId) => call<null>("open_in_herdr", { repoId }),

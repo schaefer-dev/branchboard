@@ -24,7 +24,7 @@ const snapshot: WorkspaceSnapshot = {
   repos: [repo("1", "api", "g1"), repo("2", "web", "g1"), repo("3", "scratch")],
   groups: [{ id: "g1", name: "Work", collapsed: false }],
   activeRepoId: "2",
-  settings: { fetchIntervalMinutes: 10 },
+  settings: { fetchIntervalMinutes: 10, terminalFontSize: 17 },
 };
 
 function press(key: string) {

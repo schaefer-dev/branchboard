@@ -195,6 +195,9 @@ export class FakeBackend {
       case "set_fetch_interval":
         workspace.settings.fetchIntervalMinutes = Number(args.minutes);
         return this.snapshot();
+      case "set_terminal_font_size":
+        workspace.settings.terminalFontSize = Math.min(32, Math.max(9, Number(args.size)));
+        return this.snapshot();
       case "get_agents":
         return structuredClone(this.state.agents);
       case "focus_agent":

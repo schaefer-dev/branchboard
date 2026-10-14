@@ -6,12 +6,12 @@ type KeyEventLike = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKe
 /**
  * On macOS every Cmd chord belongs to the app (copy and paste included);
  * everything else goes to the terminal. Elsewhere Ctrl belongs to the
- * terminal (Ctrl+C, Ctrl+K, …), so only Ctrl+Shift chords and Ctrl+digit
- * reach the app.
+ * terminal (Ctrl+C, Ctrl+K, …), so only Ctrl+Shift chords, Ctrl+digit and,
+ * as in Windows Terminal, the font size keys Ctrl+= / Ctrl+- reach the app.
  */
 export function keyOwner(event: KeyEventLike, mac: boolean): "app" | "terminal" {
   if (mac) return event.metaKey ? "app" : "terminal";
-  if (event.ctrlKey && !event.altKey && (event.shiftKey || /^[0-9]$/.test(event.key))) {
+  if (event.ctrlKey && !event.altKey && (event.shiftKey || /^[0-9=+-]$/.test(event.key))) {
     return "app";
   }
   return "terminal";

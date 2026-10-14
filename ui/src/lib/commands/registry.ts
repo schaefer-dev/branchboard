@@ -4,6 +4,8 @@
 export interface Shortcut {
   /** `KeyboardEvent.key`, case-insensitive for letters. */
   key: string;
+  /** Other keys that do the same, e.g. "=" for "+" on US layouts. */
+  alternateKeys?: string[];
   /** Cmd on macOS, Ctrl elsewhere. */
   mod?: boolean;
   shift?: boolean;
@@ -24,8 +26,11 @@ type KeyEventLike = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKe
 export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike, mac: boolean): boolean {
   const mod = mac ? event.metaKey : event.ctrlKey;
   const otherCtrl = mac ? event.ctrlKey : event.metaKey;
+  const key = event.key.toLowerCase();
   return (
-    event.key.toLowerCase() === shortcut.key.toLowerCase() &&
+    [shortcut.key, ...(shortcut.alternateKeys ?? [])].some(
+      (candidate) => candidate.toLowerCase() === key,
+    ) &&
     mod === (shortcut.mod ?? false) &&
     event.shiftKey === (shortcut.shift ?? false) &&
     event.altKey === (shortcut.alt ?? false) &&

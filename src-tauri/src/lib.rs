@@ -165,6 +165,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::fetch_repo,
             commands::set_mainline,
             commands::set_fetch_interval,
+            commands::set_terminal_font_size,
             commands::get_agents,
             commands::open_in_herdr,
             commands::focus_agent,

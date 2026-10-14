@@ -266,4 +266,35 @@ test.describe("embedded terminal", () => {
     await expectCall(page, "set_active_repo", { repoId: "infra" });
     await expect(web).not.toHaveAttribute("aria-current", "true");
   });
+
+  test("uses Menlo at the remembered size and resizes it on request", async ({ page }) => {
+    await openApp(page, "agents");
+    await showTerminal(page);
+    const font = () =>
+      page.evaluate(() => ({
+        family: window.__terminal?.options.fontFamily ?? "",
+        size: window.__terminal?.options.fontSize ?? 0,
+      }));
+    expect(await font()).toMatchObject({ size: 17 });
+    expect((await font()).family).toMatch(/^Menlo, /);
+    // Larger cells fit fewer of them: rows, and columns where widths round.
+    const cells = async () => {
+      const size = await page.evaluate(() => window.__fake.terminalSize());
+      return (size?.cols ?? 0) * (size?.rows ?? 0);
+    };
+    const before = await cells();
+
+    const key = await mod(page);
+    await page.locator(".xterm").click();
+    // US layouts: Cmd/Ctrl+= ; German layouts have a "+" key of their own.
+    await page.keyboard.press(`${key}+Equal`);
+    await expectCall(page, "set_terminal_font_size", { size: 18 });
+    await expect.poll(async () => (await font()).size).toBe(18);
+    // herdr is told the new size.
+    await expect.poll(cells).toBeLessThan(before);
+
+    await page.keyboard.press(`${key}+0`);
+    await expectCall(page, "set_terminal_font_size", { size: 17 });
+    await expect.poll(async () => (await font()).size).toBe(17);
+  });
 });

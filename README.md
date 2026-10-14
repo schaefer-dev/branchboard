@@ -1,15 +1,25 @@
 # Branchboard
 
-![Branchboard — a charcoal banner with a sculptural Git branching motif in off-white and amber](assets/readme-hero.png)
+![Branchboard — review what your coding agents build: the app window with repositories, agent states, branches and a diff, next to a herdr terminal where an agent waits for input](assets/readme-hero.png)
 
-A lean Git GUI for macOS and Windows, built for working across multiple repositories.
-Switch projects, review diffs, stage files, and see where your branches stand at a glance.
+**Review what your coding agents build — across every repository, in one window.**
 
-Branchboard handles the overview and review loop. Keep committing in your editor or terminal.
+Branchboard is a lean desktop app for macOS and Windows that sits between your coding agents
+and your Git history. See at a glance which agents are working, blocked, or done in each
+repository, step into their terminal, and review the diffs and branches they leave behind.
+
+Agents run in [herdr](https://herdr.dev), which Branchboard embeds and steers. Branchboard
+never runs agents itself, and without herdr it is a fast multi-repository Git GUI.
 Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI.
 
 ## Features
 
+- **Keep an eye on your agents.** See every agent across all herdr spaces with its state —
+  working, blocked, done, or idle — next to the repository it works in. Click an agent to
+  jump straight to it.
+- **Agents and review in one window.** The herdr terminal runs embedded beside the diff.
+  Switch between diff and terminal in the pane header; the terminal follows the selected
+  repository, and navigating inside herdr selects the matching repository.
 - **Your repositories, organized.** Add existing repositories through a folder picker or drag
   and drop, arrange them in groups, pin favorites, and jump between them with the quick switcher.
 - **Review and stage.** Inspect syntax-highlighted unified diffs, stage or unstage individual
@@ -35,6 +45,7 @@ Branchboard is in active development. To try the current version, build it from 
   `rust-toolchain.toml`.
 - **macOS:** Xcode command line tools (`xcode-select --install`).
 - **Windows:** MSVC C++ build tools, the Windows SDK, and the WebView2 runtime.
+- **Optional:** [herdr](https://herdr.dev) for the agent features (tested with 0.9.3).
 - **Optional:** VS Code for the editor integration.
 
 ### Run locally
@@ -62,6 +73,8 @@ Build artifacts are written under `target/release/`; installers are under
    unstage it; use the context menu for more actions.
 3. Open **Branches** to compare and switch branches. In the branch options, use
    **Compare branches with…** to set your mainline, such as `origin/main`.
+4. With herdr running, press `⌘ Shift T` to show the terminal next to your changes. A
+   repository without a herdr workspace offers **Create workspace**.
 
 The default comparison branch is `origin/development`. Background fetching defaults to every
 10 minutes for the active repository; change the interval or turn it off in the branch options.
@@ -77,6 +90,7 @@ Use `⌘` on macOS and `Ctrl` on Windows.
 | Add repositories  | `⌘ O`       | `Ctrl O`       |
 | Show changes      | `⌘ 1`       | `Ctrl 1`       |
 | Show branches     | `⌘ 2`       | `Ctrl 2`       |
+| Show terminal     | `⌘ Shift T` | `Ctrl Shift T` |
 | Fetch             | `⌘ Shift F` | `Ctrl Shift F` |
 | Open in VS Code   | `⌘ Shift E` | `Ctrl Shift E` |
 
@@ -114,11 +128,13 @@ usual Branchboard configuration.
 crates/git-core/   Git domain types and CLI adapter (no Tauri dependency)
 crates/workspace/  Repository registry, persistence, monitoring, editor integration
 crates/highlight/  Syntax highlighting for diffs
+crates/herdr/      herdr socket API client: agent state and workspaces
+crates/pty/        Pseudo terminal for the embedded herdr client
 src-tauri/        Tauri shell: commands, state, events
 ui/src/           Svelte 5 frontend
   lib/api/        Typed command wrappers and generated bindings
   lib/state/      Application state
   lib/ui/         Design tokens and shared components
-  features/       Repositories, changes, branches, diffs, and app shell
+  features/       Repositories, changes, branches, diffs, agents, terminal, and app shell
 ui/e2e/           Playwright specs, fake backend, and recorded fixtures
 ```

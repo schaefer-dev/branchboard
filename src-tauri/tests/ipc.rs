@@ -652,7 +652,7 @@ fn lists_switches_and_fetches_branches() {
     assert_eq!(reset["repos"][0]["mainline"], "origin/development");
 
     let settings = harness.ok("set_fetch_interval", json!({ "minutes": 0 }));
-    assert_eq!(settings["settings"], json!({ "fetchIntervalMinutes": 0 }));
+    assert_eq!(settings["settings"]["fetchIntervalMinutes"], 0);
 }
 
 /// The branch list of [`branch_repo`] and the commits of each branch;
@@ -1056,4 +1056,16 @@ fn runs_the_embedded_terminal() {
         .invoke("terminal_write", json!({ "data": "late\r" }))
         .unwrap_err();
     assert_eq!(error["kind"], "terminalFailed");
+}
+
+#[test]
+fn remembers_the_terminal_font_size() {
+    let harness = Harness::new();
+    let workspace = harness.ok("get_workspace", json!({}));
+    assert_eq!(workspace["settings"]["terminalFontSize"], 17);
+    let workspace = harness.ok("set_terminal_font_size", json!({ "size": 20 }));
+    assert_eq!(workspace["settings"]["terminalFontSize"], 20);
+    // Out-of-range sizes are kept within bounds.
+    let workspace = harness.ok("set_terminal_font_size", json!({ "size": 200 }));
+    assert_eq!(workspace["settings"]["terminalFontSize"], 32);
 }

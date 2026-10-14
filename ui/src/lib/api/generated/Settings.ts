@@ -5,4 +5,9 @@ export type Settings = {
  * Minutes between background fetches of the active repository; 0 turns
  * background fetching off.
  */
-fetchIntervalMinutes: number, };
+fetchIntervalMinutes: number, 
+/**
+ * Font size of the embedded terminal; files from before it existed get
+ * the default.
+ */
+terminalFontSize: number, };

@@ -18,7 +18,12 @@ function repo(name: string, extra: Partial<RepoView> = {}): RepoView {
 }
 
 function snapshot(repos: RepoView[], groups: WorkspaceSnapshot["groups"] = []): WorkspaceSnapshot {
-  return { repos, groups, activeRepoId: null, settings: { fetchIntervalMinutes: 10 } };
+  return {
+    repos,
+    groups,
+    activeRepoId: null,
+    settings: { fetchIntervalMinutes: 10, terminalFontSize: 17 },
+  };
 }
 
 describe("buildSections", () => {

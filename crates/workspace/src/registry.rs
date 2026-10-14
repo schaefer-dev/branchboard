@@ -54,6 +54,11 @@ pub const DEFAULT_MAINLINE: &str = "origin/development";
 /// Background fetch interval unless the user changes it.
 pub const DEFAULT_FETCH_INTERVAL_MINUTES: u32 = 10;
 
+/// Font size of the embedded terminal in CSS pixels (= points on macOS).
+pub const DEFAULT_TERMINAL_FONT_SIZE: u16 = 17;
+/// The range the terminal font size is kept in.
+pub const TERMINAL_FONT_SIZES: std::ops::RangeInclusive<u16> = 9..=32;
+
 impl RepoEntry {
     pub fn display_name(&self) -> String {
         self.custom_name
@@ -73,12 +78,21 @@ pub struct Settings {
     /// Minutes between background fetches of the active repository; 0 turns
     /// background fetching off.
     pub fetch_interval_minutes: u32,
+    /// Font size of the embedded terminal; files from before it existed get
+    /// the default.
+    #[serde(default = "default_terminal_font_size")]
+    pub terminal_font_size: u16,
+}
+
+fn default_terminal_font_size() -> u16 {
+    DEFAULT_TERMINAL_FONT_SIZE
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             fetch_interval_minutes: DEFAULT_FETCH_INTERVAL_MINUTES,
+            terminal_font_size: DEFAULT_TERMINAL_FONT_SIZE,
         }
     }
 }
@@ -206,6 +220,12 @@ impl Registry {
 
     pub fn set_fetch_interval(&mut self, minutes: u32) {
         self.settings.fetch_interval_minutes = minutes;
+    }
+
+    /// Sets the terminal font size, kept within [`TERMINAL_FONT_SIZES`].
+    pub fn set_terminal_font_size(&mut self, size: u16) {
+        self.settings.terminal_font_size =
+            size.clamp(*TERMINAL_FONT_SIZES.start(), *TERMINAL_FONT_SIZES.end());
     }
 
     pub fn set_favorite(&mut self, id: &RepoId, favorite: bool) -> Result<(), WorkspaceError> {

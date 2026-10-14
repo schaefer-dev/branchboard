@@ -42,4 +42,9 @@ export default ts.config(
     files: ["eslint.config.js"],
     ...ts.configs.disableTypeChecked,
   },
+  {
+    files: ["assets/**/*.mjs"],
+    ...ts.configs.disableTypeChecked,
+    languageOptions: { ...ts.configs.disableTypeChecked.languageOptions, globals: globals.node },
+  },
 );

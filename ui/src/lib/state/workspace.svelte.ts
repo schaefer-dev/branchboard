@@ -12,13 +12,17 @@ import {
 import { notices } from "./notices.svelte";
 import { buildSections, visibleRepos } from "./sections";
 
+/** The terminal font size until the settings are loaded, and for "reset"; matches
+ * `DEFAULT_TERMINAL_FONT_SIZE` in the workspace crate. */
+export const TERMINAL_FONT_SIZE = 17;
+
 /** The repository list, the active repository and per-repo summaries. */
 export class WorkspaceStore {
   snapshot = $state<WorkspaceSnapshot>({
     repos: [],
     groups: [],
     activeRepoId: null,
-    settings: { fetchIntervalMinutes: 10 },
+    settings: { fetchIntervalMinutes: 10, terminalFontSize: TERMINAL_FONT_SIZE },
   });
   summaries = new SvelteMap<RepoId, SummaryState>();
   loaded = $state(false);
@@ -96,6 +100,11 @@ export class WorkspaceStore {
 
   deleteGroup(id: GroupId): Promise<void> {
     return this.apply(api.deleteGroup(id));
+  }
+
+  /** The backend keeps the size within bounds. */
+  setTerminalFontSize(size: number): Promise<void> {
+    return this.apply(api.setTerminalFontSize(size));
   }
 
   setGroupCollapsed(id: GroupId, collapsed: boolean): Promise<void> {

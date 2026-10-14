@@ -20,6 +20,7 @@ export function terminalTheme(): ITheme {
   };
 }
 
+/** Menlo where it exists (macOS), else the app's monospace font. */
 export function terminalFont(): string {
-  return token(getComputedStyle(document.documentElement), "--font-mono", "monospace");
+  return `Menlo, ${token(getComputedStyle(document.documentElement), "--font-mono", "monospace")}`;
 }

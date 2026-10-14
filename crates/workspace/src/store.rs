@@ -148,6 +148,18 @@ mod tests {
     }
 
     #[test]
+    fn keeps_files_from_before_newer_settings() {
+        let registry =
+            parse(br#"{ "version": 1, "repos": [], "settings": { "fetchIntervalMinutes": 5 } }"#)
+                .unwrap();
+        assert_eq!(registry.settings.fetch_interval_minutes, 5);
+        assert_eq!(
+            registry.settings.terminal_font_size,
+            crate::registry::DEFAULT_TERMINAL_FONT_SIZE
+        );
+    }
+
+    #[test]
     fn refuses_files_from_a_newer_version() {
         let result = parse(br#"{ "version": 99, "repos": [] }"#);
         assert!(result.unwrap_err().contains("newer"));

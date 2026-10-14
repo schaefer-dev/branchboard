@@ -77,4 +77,19 @@ describe("CommandRegistry", () => {
     enabled = true;
     expect(registry.available().map((command) => command.id)).toEqual(["a", "b"]);
   });
+
+  it("matches alternate keys of a shortcut", () => {
+    const larger = { key: "+", alternateKeys: ["="], mod: true };
+    const event = (key: string, shiftKey = false) => ({
+      key,
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey,
+      altKey: false,
+    });
+    // German layouts have a "+" key, US layouts put it on Shift+"=".
+    expect(matchesShortcut(larger, event("+"), true)).toBe(true);
+    expect(matchesShortcut(larger, event("="), true)).toBe(true);
+    expect(matchesShortcut(larger, event("-"), true)).toBe(false);
+  });
 });

@@ -317,6 +317,19 @@ pub async fn set_fetch_interval(
     .await
 }
 
+/// Font size of the embedded terminal; kept within a sensible range.
+#[tauri::command]
+pub async fn set_terminal_font_size(
+    state: State<'_, AppState>,
+    size: u16,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_terminal_font_size(size);
+        Ok(())
+    })
+    .await
+}
+
 async fn update(
     state: &AppState,
     change: impl FnOnce(&mut workspace::Registry) -> Result<(), workspace::WorkspaceError>,

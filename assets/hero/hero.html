@@ -1,0 +1,951 @@
+<!doctype html>
+<!--
+  README hero, drawn in HTML/SVG with the Signal-Board tokens (ui/src/lib/ui/tokens.css).
+  Render: node assets/hero/render.mjs  →  assets/readme-hero.png (2400 × 960)
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Branchboard hero</title>
+    <style>
+      :root {
+        --bg: #0f1114;
+        --chrome: #181a1f;
+        --surface: #1e2126;
+        --sunken: #15171a;
+        --border: #2c3038;
+        --row-selected: #2d333d;
+        --text: #e2e5ea;
+        --muted: #9aa1ad;
+        --faint: #6c7380;
+        --accent: #f0b429;
+        --added: #4cc38a;
+        --deleted: #f0766b;
+        --modified: #7aa2f7;
+        --kw: #c79bf2;
+        --str: #7cc7c9;
+        --num: #f0a07a;
+        --fn: #82aaff;
+        --ui:
+          -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui,
+          sans-serif;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 480px;
+        overflow: hidden;
+      }
+
+      /* Rendered with a transparent page so the rounded corners sit on any GitHub theme. */
+      html {
+        /* A (transparent) image stops the body background from spreading to the canvas. */
+        background-image: linear-gradient(transparent, transparent);
+      }
+
+      body {
+        border-radius: 18px;
+      }
+
+      body {
+        position: relative;
+        background:
+          radial-gradient(520px 320px at 64% 78%, rgb(240 180 41 / 11%), transparent 70%),
+          radial-gradient(620px 360px at 96% 0%, rgb(122 162 247 / 10%), transparent 70%),
+          radial-gradient(500px 400px at 8% 20%, rgb(255 255 255 / 3%), transparent 70%), var(--bg);
+        color: var(--text);
+        font-family: var(--ui);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Dot grid, fading out towards the edges. */
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(rgb(255 255 255 / 9%) 0.8px, transparent 0.8px);
+        background-size: 16px 16px;
+        mask-image: radial-gradient(700px 420px at 58% 50%, black, transparent 75%);
+      }
+
+      .trails {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ---- Copy ---------------------------------------------------------- */
+
+      .copy {
+        position: absolute;
+        left: 64px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 440px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand svg {
+        width: 46px;
+        height: 46px;
+        filter: drop-shadow(0 6px 18px rgb(240 180 41 / 22%));
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 52px;
+        font-weight: 650;
+        letter-spacing: -0.035em;
+        line-height: 1;
+        background: linear-gradient(180deg, #ffffff 30%, #b9bec7);
+        background-clip: text;
+        color: transparent;
+      }
+
+      .tagline {
+        margin: 22px 0 0;
+        font-size: 21px;
+        line-height: 1.38;
+        letter-spacing: -0.012em;
+        color: var(--muted);
+      }
+
+      .tagline strong {
+        color: var(--text);
+        font-weight: 550;
+      }
+
+      .tagline .dot {
+        color: var(--accent);
+      }
+
+      .chips {
+        display: flex;
+        gap: 8px;
+        margin-top: 26px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 28px;
+        padding: 0 11px;
+        border: 1px solid rgb(255 255 255 / 9%);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 3.5%);
+        font-size: 12.5px;
+        color: #c5cad3;
+        white-space: nowrap;
+      }
+
+      .lights {
+        display: inline-flex;
+        gap: 3px;
+      }
+
+      .lights i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      .meta {
+        margin-top: 24px;
+        font-size: 12px;
+        letter-spacing: 0.02em;
+        color: var(--faint);
+      }
+
+      .meta b {
+        color: #4a505b;
+        font-weight: 400;
+        margin: 0 6px;
+      }
+
+      /* ---- App window ---------------------------------------------------- */
+
+      .stage {
+        position: absolute;
+        left: 536px;
+        top: 50px;
+        perspective: 1400px;
+      }
+
+      .window {
+        width: 720px;
+        height: 430px;
+        border-radius: 12px;
+        background: var(--surface);
+        border: 1px solid rgb(255 255 255 / 10%);
+        box-shadow:
+          0 0 0 1px rgb(0 0 0 / 50%),
+          0 40px 80px -10px rgb(0 0 0 / 70%),
+          0 0 120px -20px rgb(240 180 41 / 18%);
+        transform: rotateY(14deg) rotateX(4deg) rotateZ(-0.5deg);
+        transform-origin: left center;
+        overflow: hidden;
+        font-size: 10px;
+        mask-image: linear-gradient(180deg, black 72%, transparent 99%);
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 10px;
+        background: var(--chrome);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .titlebar i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #3a3f48;
+      }
+
+      .titlebar span {
+        flex: 1;
+        text-align: center;
+        margin-right: 40px;
+        color: var(--faint);
+        font-size: 10px;
+      }
+
+      .panes {
+        display: grid;
+        grid-template-columns: 164px 222px 1fr;
+        height: calc(100% - 26px);
+      }
+
+      .pane {
+        border-right: 1px solid var(--border);
+        overflow: hidden;
+      }
+
+      .side {
+        background: var(--chrome);
+      }
+
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 26px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+      }
+
+      .head .light {
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      .group {
+        padding: 9px 10px 3px;
+        color: var(--muted);
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .repo {
+        position: relative;
+        padding: 4px 10px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+      }
+
+      .repo small {
+        display: block;
+        color: var(--muted);
+        font-size: 9px;
+        margin-top: 1px;
+      }
+
+      .repo.sel {
+        background: var(--row-selected);
+      }
+
+      .repo.sel::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2.5px;
+        background: var(--accent);
+        box-shadow: 0 0 10px var(--accent);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-family: var(--mono);
+        font-size: 9px;
+      }
+
+      .prompt {
+        width: 10px;
+        height: 8px;
+      }
+
+      .agents {
+        margin-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .agents .head {
+        border: 0;
+        color: var(--muted);
+      }
+
+      .agent {
+        display: grid;
+        grid-template-columns: 14px 1fr;
+        padding: 3px 10px 4px;
+      }
+
+      .agent small {
+        display: block;
+        color: var(--muted);
+        font-size: 9px;
+      }
+
+      .agent small em {
+        font-style: normal;
+        color: var(--faint);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        height: 21px;
+        padding: 0 10px;
+        gap: 8px;
+        white-space: nowrap;
+      }
+
+      .row .grow {
+        flex: 1;
+      }
+
+      .row.sel {
+        background: var(--row-selected);
+        position: relative;
+        font-weight: 600;
+      }
+
+      .row.sel::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2.5px;
+        background: var(--accent);
+      }
+
+      .num {
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        width: 18px;
+        text-align: right;
+      }
+
+      .num.dim {
+        color: var(--faint);
+      }
+
+      .section {
+        display: flex;
+        justify-content: space-between;
+        height: 22px;
+        align-items: center;
+        padding: 0 10px;
+        background: var(--sunken);
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .file {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        height: 20px;
+        padding: 0 10px;
+      }
+
+      .file code {
+        font-family: var(--mono);
+        width: 8px;
+        font-weight: 600;
+      }
+
+      .file small {
+        color: var(--faint);
+      }
+
+      .file.sel {
+        background: var(--row-selected);
+      }
+
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+        font-weight: 400;
+      }
+
+      .seg span {
+        padding: 2px 7px;
+        color: var(--muted);
+      }
+
+      .seg span.on {
+        background: var(--row-selected);
+        color: var(--text);
+      }
+
+      .diff {
+        font-family: var(--mono);
+        font-size: 9.5px;
+      }
+
+      .diff div {
+        display: grid;
+        grid-template-columns: 22px 22px 12px 1fr;
+        height: 16px;
+        align-items: center;
+        white-space: pre;
+      }
+
+      .diff .ln {
+        color: var(--faint);
+        text-align: right;
+        padding-right: 6px;
+      }
+
+      .diff .hunk {
+        color: var(--faint);
+        background: var(--sunken);
+      }
+
+      .diff .add {
+        background: rgb(76 195 138 / 12%);
+      }
+
+      .diff .del {
+        background: rgb(240 118 107 / 12%);
+      }
+
+      .diff .add .mk {
+        color: var(--added);
+      }
+
+      .diff .del .mk {
+        color: var(--deleted);
+      }
+
+      .k {
+        color: var(--kw);
+      }
+
+      .s {
+        color: var(--str);
+      }
+
+      .n {
+        color: var(--num);
+      }
+
+      .f {
+        color: var(--fn);
+      }
+
+      .c {
+        color: #737b88;
+      }
+
+      /* ---- Floating terminal card --------------------------------------- */
+
+      .term {
+        position: absolute;
+        left: 858px;
+        top: 286px;
+        width: 300px;
+        border-radius: 10px;
+        background: rgb(21 23 26 / 82%);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgb(255 255 255 / 11%);
+        box-shadow:
+          0 30px 60px -12px rgb(0 0 0 / 75%),
+          0 0 0 1px rgb(0 0 0 / 40%);
+        overflow: hidden;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.6;
+        transform: rotate(-1deg);
+      }
+
+      .term::before {
+        content: "";
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgb(240 180 41 / 70%), transparent);
+      }
+
+      .term header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgb(255 255 255 / 7%);
+        font-family: var(--ui);
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .term header b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .term header .state {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--deleted);
+        font-weight: 500;
+      }
+
+      .pulse {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--deleted);
+        box-shadow: 0 0 0 3px rgb(240 118 107 / 18%);
+      }
+
+      .term pre {
+        margin: 0;
+        padding: 10px 12px 12px;
+        font: inherit;
+        color: var(--muted);
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 6px;
+        height: 12px;
+        vertical-align: -2px;
+        background: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid"></div>
+
+    <svg class="trails" viewBox="0 0 1200 480" aria-hidden="true">
+      <defs>
+        <linearGradient id="t-amber" x1="0" x2="1">
+          <stop offset="0" stop-color="#f0b429" stop-opacity="0" />
+          <stop offset="0.7" stop-color="#f0b429" stop-opacity="0.75" />
+          <stop offset="1" stop-color="#f0b429" stop-opacity="0.15" />
+        </linearGradient>
+        <linearGradient id="t-blue" x1="0" x2="1">
+          <stop offset="0" stop-color="#7aa2f7" stop-opacity="0" />
+          <stop offset="0.8" stop-color="#7aa2f7" stop-opacity="0.45" />
+          <stop offset="1" stop-color="#7aa2f7" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="t-green" x1="0" x2="1">
+          <stop offset="0" stop-color="#4cc38a" stop-opacity="0" />
+          <stop offset="0.8" stop-color="#4cc38a" stop-opacity="0.4" />
+          <stop offset="1" stop-color="#4cc38a" stop-opacity="0" />
+        </linearGradient>
+        <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g fill="none" stroke-width="1.2" filter="url(#glow)">
+        <path d="M 0 452 C 300 452, 520 440, 700 420 S 820 380, 870 360" stroke="url(#t-amber)" />
+        <path d="M 0 470 C 320 470, 560 462, 860 440" stroke="url(#t-blue)" />
+        <path d="M 140 480 C 380 474, 600 458, 800 430" stroke="url(#t-green)" />
+      </g>
+    </svg>
+
+    <section class="copy">
+      <div class="brand">
+        <svg viewBox="64 64 896 896" aria-hidden="true">
+          <rect x="64" y="64" width="896" height="896" rx="200" fill="#1e2126" />
+          <rect
+            x="66"
+            y="66"
+            width="892"
+            height="892"
+            rx="198"
+            fill="none"
+            stroke="#ffffff"
+            stroke-opacity="0.08"
+            stroke-width="4"
+          />
+          <g fill="none" stroke="#e2e5ea" stroke-width="56" stroke-linecap="round">
+            <path d="M384 288 V736" />
+            <path d="M384 640 C384 520 640 560 640 416" stroke="#f0b429" />
+          </g>
+          <circle cx="384" cy="288" r="72" fill="#1e2126" stroke="#e2e5ea" stroke-width="48" />
+          <circle cx="384" cy="736" r="72" fill="#1e2126" stroke="#e2e5ea" stroke-width="48" />
+          <circle cx="640" cy="352" r="80" fill="#f0b429" />
+        </svg>
+        <h1>Branchboard</h1>
+      </div>
+      <p class="tagline">
+        <strong>Review what your coding agents build</strong><br />
+        across every repository, in one window<span class="dot">.</span>
+      </p>
+      <div class="chips">
+        <span class="chip">
+          <span class="lights">
+            <i style="background: var(--modified)"></i>
+            <i style="background: var(--deleted)"></i>
+            <i style="background: var(--added)"></i>
+          </span>
+          Agent status
+        </span>
+        <span class="chip">
+          <svg class="prompt" viewBox="0 0 10 8" aria-hidden="true">
+            <path
+              d="M1 1.5 L4 4 L1 6.5 M5.5 7 H9"
+              fill="none"
+              stroke="#f0b429"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Embedded herdr
+        </span>
+        <span class="chip">
+          <span style="color: var(--added); font-family: var(--mono)">+</span
+          ><span style="color: var(--deleted); font-family: var(--mono); margin-left: -4px">−</span>
+          Diff &amp; stage
+        </span>
+      </div>
+      <div class="meta">macOS<b>·</b>Windows<b>·</b>Tauri, Rust &amp; Svelte</div>
+    </section>
+
+    <div class="stage">
+      <div class="window">
+        <div class="titlebar">
+          <i></i><i></i><i></i>
+          <span>Branchboard</span>
+        </div>
+        <div class="panes">
+          <div class="pane side">
+            <div class="head">Repositories <span class="light">+</span></div>
+            <div class="group">Work <span class="light">4</span></div>
+            <div class="repo sel">
+              <div>api<small>feature/login-rate-limit</small></div>
+              <span class="badge" style="color: var(--deleted)">
+                <svg class="prompt" viewBox="0 0 10 8">
+                  <path
+                    d="M1 1.5 L4 4 L1 6.5 M5.5 7 H9"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="round"
+                  /></svg
+                >2
+              </span>
+            </div>
+            <div class="repo">
+              <div>web<small>fix/login-form</small></div>
+              <span class="badge" style="color: var(--added)">
+                <svg class="prompt" viewBox="0 0 10 8">
+                  <path
+                    d="M1 1.5 L4 4 L1 6.5 M5.5 7 H9"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+            </div>
+            <div class="repo">
+              <div>infrastructure<small>development</small></div>
+              <span class="badge" style="color: var(--modified)">
+                <svg class="prompt" viewBox="0 0 10 8">
+                  <path
+                    d="M1 1.5 L4 4 L1 6.5 M5.5 7 H9"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+            </div>
+            <div class="repo">
+              <div>design-system<small>main</small></div>
+            </div>
+            <div class="agents">
+              <div class="head">
+                Agents <span style="color: var(--deleted); font-weight: 600">1 needs input</span>
+              </div>
+              <div class="agent">
+                <span style="color: var(--deleted)">›_</span>
+                <div>
+                  <span style="color: var(--deleted)">api</span>
+                  <small>Codex <em>· Rate limit headers</em></small>
+                </div>
+              </div>
+              <div class="agent">
+                <span style="color: var(--added)">›_</span>
+                <div>
+                  web<small>Claude <em>· Fix the login form</em></small>
+                </div>
+              </div>
+              <div class="agent">
+                <span style="color: var(--modified)">›_</span>
+                <div>
+                  infrastructure<small>Claude <em>· Pin runner images</em></small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane">
+            <div class="head">
+              <span><span class="light">Compared with</span> origin/main</span>
+            </div>
+            <div class="row sel">
+              <span class="grow">feature/login-rate-limit</span>
+              <span class="num">↑3</span><span class="num dim">↓0</span>
+            </div>
+            <div class="row">
+              <span class="grow">fix/header-overflow</span>
+              <span class="num">↑1</span><span class="num">↓2</span>
+            </div>
+            <div class="row">
+              <span class="grow">main</span>
+              <span class="num dim">↑0</span><span class="num dim">↓0</span>
+            </div>
+            <div class="section">Staged 1 <span class="light">Unstage all</span></div>
+            <div class="file"><code style="color: var(--modified)">M</code>config.toml</div>
+            <div class="section">Changes 4 <span class="light">Stage all</span></div>
+            <div class="file sel">
+              <code style="color: var(--modified)">M</code>login.ts <small>src/handlers</small>
+            </div>
+            <div class="file">
+              <code style="color: var(--added)">A</code>rate-limit.ts <small>src/middleware</small>
+            </div>
+            <div class="file">
+              <code style="color: var(--modified)">M</code>login.test.ts <small>tests</small>
+            </div>
+            <div class="file">
+              <code style="color: var(--deleted)">D</code>legacy-throttle.ts
+              <small>src/util</small>
+            </div>
+          </div>
+
+          <div class="pane" style="border: 0">
+            <div class="head">
+              <span>login.ts</span>
+              <span style="display: flex; gap: 10px; align-items: center">
+                <span style="color: var(--added); font-weight: 400">+4</span>
+                <span style="color: var(--deleted); font-weight: 400; margin-left: -6px">−1</span>
+                <span class="seg"><span class="on">Diff</span><span>Terminal</span></span>
+              </span>
+            </div>
+            <div class="diff" id="diff"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="term">
+      <header>
+        <svg class="prompt" viewBox="0 0 10 8" aria-hidden="true">
+          <path
+            d="M1 1.5 L4 4 L1 6.5 M5.5 7 H9"
+            fill="none"
+            stroke="#f0b429"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+        <b>herdr</b> api · agents
+        <span class="state"><span class="pulse"></span>Needs input</span>
+      </header>
+      <pre>
+<span style="color: var(--text)">Codex</span> wants to edit <span style="color: var(--fn)">src/handlers/login.ts</span>
+  <span style="color: var(--added)">+ 4</span>  <span style="color: var(--deleted)">− 1</span>   rate limit per IP
+
+Apply this change? <span style="color: var(--text)">[y/n]</span> <span class="cursor"></span></pre>
+    </div>
+    <script>
+      // Diff lines live here instead of in markup: they render with `white-space: pre`, which
+      // Prettier's HTML wrapping would break. Segments are [class, text]; "" is plain text.
+      const lines = [
+        ["hunk", "", "", "", [["", "@@ -12,6 +12,9 @@"]]],
+        [
+          "",
+          "12",
+          "12",
+          "",
+          [
+            ["k", "import"],
+            ["", " { rateLimit } "],
+            ["k", "from"],
+            ["", " "],
+            ["s", '"../middleware"'],
+            ["", ";"],
+          ],
+        ],
+        ["", "13", "13", "", []],
+        [
+          "",
+          "14",
+          "14",
+          "",
+          [
+            ["k", "export async function"],
+            ["", " "],
+            ["f", "login"],
+            ["", "(req, res) {"],
+          ],
+        ],
+        [
+          "del",
+          "15",
+          "",
+          "−",
+          [
+            ["", "  "],
+            ["k", "const"],
+            ["", " user = "],
+            ["k", "await"],
+            ["", " "],
+            ["f", "auth"],
+            ["", "(req.body);"],
+          ],
+        ],
+        [
+          "add",
+          "",
+          "15",
+          "+",
+          [
+            ["", "  "],
+            ["k", "const"],
+            ["", " limited = "],
+            ["f", "rateLimit"],
+            ["", "(req.ip, {"],
+          ],
+        ],
+        [
+          "add",
+          "",
+          "16",
+          "+",
+          [
+            ["", "    window: "],
+            ["n", "60_000"],
+            ["", ", max: "],
+            ["n", "5"],
+            ["", ","],
+          ],
+        ],
+        ["add", "", "17", "+", [["", "  });"]]],
+        [
+          "add",
+          "",
+          "18",
+          "+",
+          [
+            ["", "  "],
+            ["k", "if"],
+            ["", " (limited) "],
+            ["k", "return"],
+            ["", " res."],
+            ["f", "status"],
+            ["", "("],
+            ["n", "429"],
+            ["", ")."],
+            ["f", "end"],
+            ["", "();"],
+          ],
+        ],
+        [
+          "",
+          "16",
+          "19",
+          "",
+          [
+            ["", "  "],
+            ["c", "// Issue a session for the verified user."],
+          ],
+        ],
+        [
+          "",
+          "17",
+          "20",
+          "",
+          [
+            ["", "  "],
+            ["k", "return"],
+            ["", " "],
+            ["f", "startSession"],
+            ["", "(res, user);"],
+          ],
+        ],
+        ["", "18", "21", "", [["", "}"]]],
+      ];
+
+      const span = (cls, text) => {
+        const el = document.createElement("span");
+        if (cls) el.className = cls;
+        el.textContent = text;
+        return el;
+      };
+
+      const diff = document.getElementById("diff");
+      for (const [kind, oldNo, newNo, marker, segments] of lines) {
+        const row = document.createElement("div");
+        if (kind) row.className = kind;
+        const code = span("", "");
+        for (const [cls, text] of segments) code.append(span(cls, text));
+        row.append(span("ln", oldNo), span("ln", newNo), span("mk", marker), code);
+        diff.append(row);
+      }
+    </script>
+  </body>
+</html>

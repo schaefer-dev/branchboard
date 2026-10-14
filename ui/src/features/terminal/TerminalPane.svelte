@@ -4,12 +4,13 @@
   import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
 
   import type { RepoView } from "../../lib/api";
   import { isMac } from "../../lib/platform/os";
   import { terminal } from "../../lib/state/terminal.svelte";
   import { view } from "../../lib/state/view.svelte";
+  import { workspace } from "../../lib/state/workspace.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import { openRepoInHerdr } from "../agents/open-in-herdr";
@@ -57,7 +58,7 @@
       // herdr keeps the scrollback of every pane itself.
       scrollback: 0,
       fontFamily: terminalFont(),
-      fontSize: 13,
+      fontSize: untrack(() => workspace.snapshot.settings.terminalFontSize),
       theme: terminalTheme(),
       // Option composes characters (e.g. @ and [ on German layouts).
       macOptionIsMeta: false,
@@ -118,6 +119,14 @@
 
   $effect(() => {
     if (visible) requestAnimationFrame(fitToPane);
+  });
+
+  // A new font size changes how many cells fit; herdr redraws for the new size.
+  $effect(() => {
+    const size = workspace.snapshot.settings.terminalFontSize;
+    if (!term || term.options.fontSize === size) return;
+    term.options.fontSize = size;
+    requestAnimationFrame(fitToPane);
   });
 
   $effect(() => {

@@ -29,6 +29,9 @@ describe("terminal key policy", () => {
     expect(keyOwner(key("c", { ctrl: true }), false)).toBe("terminal");
     expect(keyOwner(key("T", { ctrl: true, shift: true }), false)).toBe("app");
     expect(keyOwner(key("1", { ctrl: true }), false)).toBe("app");
+    // Font size, as in Windows Terminal.
+    expect(keyOwner(key("=", { ctrl: true }), false)).toBe("app");
+    expect(keyOwner(key("-", { ctrl: true }), false)).toBe("app");
     // AltGr arrives as Ctrl+Alt on Windows (e.g. @ on German layouts).
     expect(keyOwner(key("@", { ctrl: true, alt: true }), false)).toBe("terminal");
   });

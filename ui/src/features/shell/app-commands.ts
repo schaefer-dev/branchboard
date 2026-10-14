@@ -7,7 +7,7 @@ import { branches } from "../../lib/state/branches.svelte";
 import { terminal } from "../../lib/state/terminal.svelte";
 import { changes } from "../../lib/state/changes.svelte";
 import { view } from "../../lib/state/view.svelte";
-import { workspace } from "../../lib/state/workspace.svelte";
+import { TERMINAL_FONT_SIZE, workspace } from "../../lib/state/workspace.svelte";
 import { openRepoInHerdr } from "../agents/open-in-herdr";
 import { chooseMainline } from "../branches/branch-actions";
 import { openCurrentInEditor } from "../editor/open-in-editor";
@@ -17,6 +17,8 @@ interface Dialogs {
   openSwitcher: () => void;
   openPalette: () => void;
 }
+
+const terminalFontSize = () => workspace.snapshot.settings.terminalFontSize;
 
 /** The active repository, if it can be worked with. */
 const usableRepo = () => {
@@ -85,6 +87,27 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       shortcut: { key: "t", mod: true, shift: true },
       enabled: () => terminal.available || (agents.available && usableRepo() !== null),
       run: () => openRepoInHerdr(usableRepo()),
+    }),
+    commands.register({
+      id: "terminal.fontLarger",
+      title: "Larger terminal font",
+      shortcut: { key: "+", alternateKeys: ["="], mod: true },
+      enabled: () => terminal.available,
+      run: () => workspace.setTerminalFontSize(terminalFontSize() + 1),
+    }),
+    commands.register({
+      id: "terminal.fontSmaller",
+      title: "Smaller terminal font",
+      shortcut: { key: "-", mod: true },
+      enabled: () => terminal.available,
+      run: () => workspace.setTerminalFontSize(terminalFontSize() - 1),
+    }),
+    commands.register({
+      id: "terminal.fontReset",
+      title: "Default terminal font size",
+      shortcut: { key: "0", mod: true },
+      enabled: () => terminal.available,
+      run: () => workspace.setTerminalFontSize(TERMINAL_FONT_SIZE),
     }),
     commands.register({
       id: "changes.stageAll",
