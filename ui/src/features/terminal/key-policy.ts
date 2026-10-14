@@ -1,9 +1,22 @@
-// Which keys the embedded terminal keeps and which reach Branchboard's
-// shortcuts while the terminal has focus.
+// Clipboard shortcuts bypass terminal encoding; other keys either stay in
+// the terminal or reach Branchboard's shortcuts.
 
 type KeyEventLike = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey">;
 
+/** Leave paste and Windows clipboard history to the WebView and OS. */
+export function isNativePasteShortcut(event: KeyEventLike, mac: boolean): boolean {
+  if (event.altKey) return false;
+  if (event.key.toLowerCase() === "v") {
+    if (mac) return event.metaKey && !event.ctrlKey && !event.shiftKey;
+    return (
+      (event.ctrlKey && !event.metaKey) || (event.metaKey && !event.ctrlKey && !event.shiftKey)
+    );
+  }
+  return !mac && event.key === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey;
+}
+
 /**
+ * Used after native clipboard shortcuts have bypassed terminal encoding.
  * On macOS every Cmd chord belongs to the app (copy and paste included);
  * everything else goes to the terminal. Elsewhere Ctrl belongs to the
  * terminal (Ctrl+C, Ctrl+K, …), so only Ctrl+Shift chords, Ctrl+digit and,

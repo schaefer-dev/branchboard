@@ -134,6 +134,101 @@ test.describe("embedded terminal", () => {
     await expect.poll(() => typed(page)).toBe("\x1b[1;3D\x1b[200~echo one\recho two\x1b[201~");
   });
 
+  for (const kittyFlags of [0, 1, 3]) {
+    test(`leaves native paste shortcuts uncancelled with Kitty flags ${String(kittyFlags)}`, async ({
+      page,
+    }) => {
+      await openApp(page, "agents");
+      await showTerminal(page);
+      const results = await page.evaluate(async (flags) => {
+        const term = window.__terminal;
+        const input = term?.textarea;
+        if (!term || !input) throw new Error("Terminal input is unavailable");
+        await new Promise<void>((resolve) => {
+          term.write(`\x1b[=${String(flags)}u`, resolve);
+        });
+        const mac = navigator.userAgent.includes("Mac");
+        const shortcuts: KeyboardEventInit[] = mac
+          ? [{ key: "v", code: "KeyV", keyCode: 86, metaKey: true }]
+          : [
+              { key: "v", code: "KeyV", keyCode: 86, ctrlKey: true },
+              { key: "V", code: "KeyV", keyCode: 86, ctrlKey: true, shiftKey: true },
+              { key: "Insert", code: "Insert", keyCode: 45, shiftKey: true },
+              { key: "v", code: "KeyV", keyCode: 86, metaKey: true },
+            ];
+        input.focus();
+        return shortcuts.map((shortcut) => {
+          let emitted = "";
+          const listener = term.onData((data) => (emitted += data));
+          // Synthetic keys let us test Windows shortcuts on a macOS host
+          // without invoking the host clipboard or its history UI.
+          const allowed = ["keydown", "keypress", "keyup"].map((type) =>
+            input.dispatchEvent(
+              new KeyboardEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                charCode: type === "keypress" ? (shortcut.key?.charCodeAt(0) ?? 0) : 0,
+                ...shortcut,
+              }),
+            ),
+          );
+          listener.dispose();
+          return { shortcut, allowed, emitted };
+        });
+      }, kittyFlags);
+      for (const result of results) {
+        expect(result.allowed, JSON.stringify(result.shortcut)).toEqual([true, true, true]);
+        expect(result.emitted, JSON.stringify(result.shortcut)).toBe("");
+      }
+      expect(await typed(page)).toBe("");
+    });
+
+    test(`pastes Unicode and multiline text once with Kitty flags ${String(kittyFlags)}`, async ({
+      page,
+    }) => {
+      await openApp(page, "agents");
+      await showTerminal(page);
+      let expected = "";
+      for (const bracketed of [false, true]) {
+        await page.evaluate(
+          async ({ flags, bracketed }) => {
+            const term = window.__terminal;
+            const input = term?.textarea;
+            if (!term || !input) throw new Error("Terminal input is unavailable");
+            await new Promise<void>((resolve) => {
+              term.write(`\x1b[=${String(flags)}u\x1b[?2004${bracketed ? "h" : "l"}`, resolve);
+            });
+            const data = new DataTransfer();
+            data.setData("text/plain", "Grüße\r\n你好\nlast");
+            input.dispatchEvent(
+              new ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
+            );
+          },
+          { flags: kittyFlags, bracketed },
+        );
+        const text = "Grüße\r你好\rlast";
+        expected += bracketed ? `\x1b[200~${text}\x1b[201~` : text;
+        await expect.poll(() => typed(page)).toBe(expected);
+      }
+    });
+  }
+
+  test("keeps Ctrl+C and macOS Ctrl+V as terminal input", async ({ page }) => {
+    await openApp(page, "agents");
+    await showTerminal(page);
+    const mac = (await mod(page)) === "Meta";
+    await page.keyboard.press("Control+c");
+    if (mac) await page.keyboard.press("Control+v");
+    await expect.poll(() => typed(page)).toBe(mac ? "\x03\x16" : "\x03");
+
+    await output(page, "\x1b[>1u");
+    await page.keyboard.press("Control+c");
+    if (mac) await page.keyboard.press("Control+v");
+    await expect
+      .poll(() => typed(page))
+      .toBe(mac ? "\x03\x16\x1b[99;5u\x1b[118;5u" : "\x03\x1b[99;5u");
+  });
+
   test("passes characters composed with Option or AltGr", async ({ page }) => {
     await openApp(page, "agents");
     await showTerminal(page);

@@ -15,7 +15,7 @@
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import { openRepoInHerdr } from "../agents/open-in-herdr";
   import RightSwitch from "../shell/RightSwitch.svelte";
-  import { isCopy, keyOwner } from "./key-policy";
+  import { isCopy, isNativePasteShortcut, keyOwner } from "./key-policy";
   import { terminalFont, terminalTheme } from "./terminal-theme";
 
   interface Props {
@@ -69,6 +69,9 @@
     instance.loadAddon(new Unicode11Addon());
     instance.unicode.activeVersion = "11";
     instance.attachCustomKeyEventHandler((event) => {
+      // Keep the browser's paste action and Windows clipboard history. Do
+      // this for key releases too, which Kitty can otherwise send as input.
+      if (isNativePasteShortcut(event, mac)) return false;
       if (event.type === "keydown" && isCopy(event, mac)) {
         const selection = instance.getSelection();
         if (selection) void navigator.clipboard.writeText(selection);
