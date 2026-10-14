@@ -36,6 +36,13 @@ test.describe("coding agents in herdr", () => {
     );
     await expect(badge(page, "infra")).toHaveAttribute("data-state", "working");
     await expect(badge(page, "dotfiles")).toHaveAttribute("data-state", "idle");
+
+    // Each state has its own shape, not only its own color.
+    const shape = (repoId: string) => badge(page, repoId).locator("[data-shape]");
+    await expect(shape("api")).toHaveAttribute("data-shape", "ringed-dot");
+    await expect(shape("web")).toHaveAttribute("data-shape", "check");
+    await expect(shape("infra")).toHaveAttribute("data-shape", "half");
+    await expect(shape("dotfiles")).toHaveAttribute("data-shape", "ring");
     await expect(badge(page, "blog")).toHaveCount(0);
   });
 
@@ -137,6 +144,13 @@ test.describe("coding agents in herdr", () => {
       "Claude",
       "Claude",
     ]);
+    await expect
+      .poll(() =>
+        list
+          .locator("[data-shape]")
+          .evaluateAll((icons) => icons.map((icon) => icon.getAttribute("data-shape"))),
+      )
+      .toEqual(["ringed-dot", "check", "check", "half", "half", "ring"]);
     await expect(list.locator('[data-pane-id="w6:p1"]')).toHaveAccessibleName(
       "Claude is done · Weekly review, in notes",
     );
