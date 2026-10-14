@@ -78,7 +78,7 @@ impl Fake {
                     }
                     return;
                 }
-                "workspace.focus" => json!({ "type": "ok" }),
+                "workspace.focus" | "agent.focus" => json!({ "type": "ok" }),
                 "workspace.create" => json!({
                     "type": "workspace_created",
                     "workspace": { "workspace_id": "w9" },
@@ -339,5 +339,15 @@ async fn open_creates_a_workspace_in_the_repository() {
     assert_eq!(
         setup.fake.calls("workspace.create"),
         [json!({ "cwd": "/home/dev/docs", "label": "Docs", "focus": true })]
+    );
+}
+
+#[tokio::test]
+async fn focuses_an_agent() {
+    let setup = setup();
+    setup.link.focus_agent("w1:p2").await.unwrap();
+    assert_eq!(
+        setup.fake.calls("agent.focus"),
+        [json!({ "target": "w1:p2" })]
     );
 }

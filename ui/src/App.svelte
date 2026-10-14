@@ -6,7 +6,7 @@
   import DiffPane from "./features/diff/DiffPane.svelte";
   import DropOverlay from "./features/repos/DropOverlay.svelte";
   import QuickSwitcher from "./features/repos/QuickSwitcher.svelte";
-  import RepoSidebar from "./features/repos/RepoSidebar.svelte";
+  import Sidebar from "./features/shell/Sidebar.svelte";
   import { registerAppCommands } from "./features/shell/app-commands";
   import CommandPalette from "./features/shell/CommandPalette.svelte";
   import StatusBar from "./features/shell/StatusBar.svelte";
@@ -79,7 +79,7 @@
 
 <div class="app">
   <main class="panes">
-    <RepoSidebar />
+    <Sidebar />
     <WorkPane />
     {#if view.detail === "branches"}
       <CommitsPane />

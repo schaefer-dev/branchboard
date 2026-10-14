@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { RepoAgents } from "../../lib/api";
-import { agentName, describeAgent, describeAgents } from "./agent-text";
+import {
+  agentName,
+  agentPlace,
+  describeAgent,
+  describeAgentRow,
+  describeAgents,
+} from "./agent-text";
 
 describe("agent text", () => {
   it("names agents", () => {
@@ -33,5 +39,19 @@ describe("agent text", () => {
       ],
     };
     expect(describeAgents(repo)).toBe("Claude is done\nPi is running");
+  });
+
+  it("names where an agent runs", () => {
+    const row = {
+      paneId: "w2:p1",
+      agent: "claude",
+      state: "done" as const,
+      title: null,
+      workspace: "notes",
+      tab: null,
+      repoId: null,
+    };
+    expect(agentPlace(row)).toBe("notes");
+    expect(describeAgentRow({ ...row, tab: "agents" })).toBe("Claude is done, in notes · agents");
   });
 });

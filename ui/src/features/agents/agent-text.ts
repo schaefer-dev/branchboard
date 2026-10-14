@@ -1,6 +1,6 @@
 // Wording for the agents herdr reports.
 
-import type { AgentState, AgentSummary, RepoAgents } from "../../lib/api";
+import type { AgentRow, AgentState, AgentSummary, RepoAgents } from "../../lib/api";
 
 const doing: Record<AgentState, string> = {
   blocked: "needs input",
@@ -24,4 +24,14 @@ export function describeAgent(agent: AgentSummary): string {
 /** One line per agent, most urgent first. */
 export function describeAgents(repo: RepoAgents): string {
   return repo.agents.map(describeAgent).join("\n");
+}
+
+/** Where an agent runs: "workspace · tab", or just the workspace. */
+export function agentPlace(agent: AgentRow): string {
+  return agent.tab ? `${agent.workspace} · ${agent.tab}` : agent.workspace;
+}
+
+/** e.g. "Claude needs input · Fix the login form, in api · agents". */
+export function describeAgentRow(agent: AgentRow): string {
+  return `${describeAgent(agent)}, in ${agentPlace(agent)}`;
 }

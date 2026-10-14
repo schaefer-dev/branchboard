@@ -1,6 +1,8 @@
 // Starting states for the fake backend, selected with `?scenario=<name>`.
 
 import type {
+  AgentRow,
+  AgentState,
   AgentsSnapshot,
   BranchCommits,
   BranchList,
@@ -74,7 +76,7 @@ export interface Scenario {
   agents: AgentsSnapshot;
 }
 
-const noHerdr = (): AgentsSnapshot => ({ available: false, repos: [] });
+const noHerdr = (): AgentsSnapshot => ({ available: false, repos: [], agents: [] });
 
 function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView {
   return {
@@ -155,43 +157,32 @@ function defaultScenario(): Scenario {
 
 /** The default workspace with agents running in herdr. */
 function agentsScenario(): Scenario {
+  const agent = (
+    paneId: string,
+    agent: string,
+    state: AgentState,
+    title: string | null,
+    workspace: string,
+    repoId: string | null,
+    tab: string | null = null,
+  ): AgentRow => ({ paneId, agent, state, title, workspace, tab, repoId });
+  const list: AgentRow[] = [
+    agent("w1:p2", "codex", "blocked", "Add rate limit headers", "api", "api", "agents"),
+    agent("w2:p1", "claude", "done", "Fix the login form", "web", "web"),
+    agent("w6:p1", "claude", "done", "Weekly review", "notes", null),
+    agent("w1:p1", "claude", "working", "Refactor the login handler", "api", "api", "agents"),
+    agent("w3:p1", "claude", "working", null, "infra", "infra"),
+    agent("w4:p1", "claude", "idle", null, "dotfiles", "dotfiles"),
+  ];
+  const repos = ["api", "web", "infra", "dotfiles"].map((repoId) => {
+    const agents = list
+      .filter((row) => row.repoId === repoId)
+      .map(({ paneId, agent, state, title }) => ({ paneId, agent, state, title }));
+    return { repoId, state: agents[0]?.state ?? "idle", agents };
+  });
   return {
     ...defaultScenario(),
-    agents: {
-      available: true,
-      repos: [
-        {
-          repoId: "api",
-          state: "blocked",
-          agents: [
-            { paneId: "w1:p2", agent: "codex", state: "blocked", title: "Add rate limit headers" },
-            {
-              paneId: "w1:p1",
-              agent: "claude",
-              state: "working",
-              title: "Refactor the login handler",
-            },
-          ],
-        },
-        {
-          repoId: "web",
-          state: "done",
-          agents: [
-            { paneId: "w2:p1", agent: "claude", state: "done", title: "Fix the login form" },
-          ],
-        },
-        {
-          repoId: "infra",
-          state: "working",
-          agents: [{ paneId: "w3:p1", agent: "claude", state: "working", title: null }],
-        },
-        {
-          repoId: "dotfiles",
-          state: "idle",
-          agents: [{ paneId: "w4:p1", agent: "claude", state: "idle", title: null }],
-        },
-      ],
-    },
+    agents: { available: true, repos, agents: list },
   };
 }
 

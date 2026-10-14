@@ -1,7 +1,7 @@
 //! Data transfer objects returned to the frontend.
 
 use git_core::GitVersion;
-use herdr::{AgentState, AgentSummary};
+use herdr::{AgentEntry, AgentState, AgentSummary};
 use serde::Serialize;
 use ts_rs::TS;
 use workspace::{RepoId, WorkspaceSnapshot};
@@ -40,6 +40,18 @@ pub struct AgentsSnapshot {
     pub available: bool,
     /// Only repositories with at least one agent, in list order.
     pub repos: Vec<RepoAgents>,
+    /// Every agent in every herdr workspace, most urgent first.
+    pub agents: Vec<AgentRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AgentRow {
+    #[serde(flatten)]
+    pub agent: AgentEntry,
+    /// The repository the agent works in, if it is in the list.
+    pub repo_id: Option<RepoId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]

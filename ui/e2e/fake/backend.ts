@@ -191,6 +191,11 @@ export class FakeBackend {
         return this.snapshot();
       case "get_agents":
         return structuredClone(this.state.agents);
+      case "focus_agent":
+        if (!this.state.agents.agents.some((agent) => agent.paneId === args.paneId)) {
+          fail("herdrFailed", "herdr reported an error.", "not_found: agent not found");
+        }
+        return null;
       case "open_in_herdr":
         this.repo(args.repoId);
         if (!this.state.agents.available) {

@@ -147,6 +147,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::set_fetch_interval,
             commands::get_agents,
             commands::open_in_herdr,
+            commands::focus_agent,
         ])
 }
 

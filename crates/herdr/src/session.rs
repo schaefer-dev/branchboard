@@ -50,6 +50,8 @@ pub struct Session {
     #[serde(default)]
     pub workspaces: Vec<Workspace>,
     #[serde(default)]
+    pub tabs: Vec<Tab>,
+    #[serde(default)]
     pub panes: Vec<Pane>,
     #[serde(default)]
     pub agents: Vec<Agent>,
@@ -78,6 +80,13 @@ pub struct Worktree {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Tab {
+    pub tab_id: String,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Pane {
     pub pane_id: String,
     pub workspace_id: String,
@@ -93,6 +102,8 @@ pub struct Pane {
 pub struct Agent {
     pub pane_id: String,
     pub workspace_id: String,
+    #[serde(default)]
+    pub tab_id: Option<String>,
     #[serde(default)]
     pub agent: Option<String>,
     #[serde(default)]
@@ -144,6 +155,16 @@ impl Session {
 
     pub(crate) fn pane(&self, id: &str) -> Option<&Pane> {
         self.panes.iter().find(|pane| pane.pane_id == id)
+    }
+
+    pub(crate) fn workspace(&self, id: &str) -> Option<&Workspace> {
+        self.workspaces
+            .iter()
+            .find(|workspace| workspace.workspace_id == id)
+    }
+
+    pub(crate) fn tab(&self, id: &str) -> Option<&Tab> {
+        self.tabs.iter().find(|tab| tab.tab_id == id)
     }
 }
 

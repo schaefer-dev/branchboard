@@ -3,6 +3,7 @@ export { CommandError, toAppError } from "./client";
 export { onRepoAgents, onRepoFetch, onRepoStatus, onRepoSummary } from "./events";
 
 export type { AddRepoResult } from "./generated/AddRepoResult";
+export type { AgentRow } from "./generated/AgentRow";
 export type { AgentsSnapshot } from "./generated/AgentsSnapshot";
 export type { AgentState } from "./generated/AgentState";
 export type { AgentSummary } from "./generated/AgentSummary";

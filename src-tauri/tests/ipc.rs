@@ -807,7 +807,7 @@ fn reports_agents_unavailable_without_herdr() {
     let repo_id = harness.add(&harness.repo("api"));
     assert_eq!(
         harness.ok("get_agents", json!({})),
-        json!({ "available": false, "repos": [] })
+        json!({ "available": false, "repos": [], "agents": [] })
     );
     let error = harness
         .invoke("open_in_herdr", json!({ "repoId": repo_id }))
@@ -830,7 +830,11 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
     let fake = FakeHerdr::start(json!({
         "version": "0.9.3",
         "protocol": 22,
-        "workspaces": [{ "workspace_id": "w1", "number": 1, "label": "api" }],
+        "workspaces": [
+            { "workspace_id": "w1", "number": 1, "label": "api" },
+            { "workspace_id": "w2", "number": 2, "label": "notes" },
+        ],
+        "tabs": [{ "tab_id": "w1:t1", "workspace_id": "w1", "label": "agents" }],
         "panes": [
             { "pane_id": "w1:p1", "workspace_id": "w1", "cwd": api },
             { "pane_id": "w1:p2", "workspace_id": "w1", "cwd": api_src },
@@ -841,7 +845,8 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
                 "agent_status": "blocked", "cwd": api_src,
                 "terminal_title_stripped": "Fix the login form",
             },
-            { "pane_id": "w1:p1", "workspace_id": "w1", "agent": "codex", "agent_status": "working", "cwd": api },
+            { "pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1", "agent": "codex", "agent_status": "working", "cwd": api },
+            { "pane_id": "w2:p1", "workspace_id": "w2", "agent": "claude", "agent_status": "done", "cwd": "/notes" },
         ],
     }));
 
@@ -862,8 +867,28 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
                     { "paneId": "w1:p1", "agent": "codex", "state": "working", "title": null },
                 ],
             }],
+            "agents": [
+                {
+                    "paneId": "w1:p2", "agent": "claude", "state": "blocked",
+                    "title": "Fix the login form", "workspace": "api", "tab": null, "repoId": api_id,
+                },
+                {
+                    "paneId": "w2:p1", "agent": "claude", "state": "done",
+                    "title": null, "workspace": "notes", "tab": null, "repoId": null,
+                },
+                {
+                    "paneId": "w1:p1", "agent": "codex", "state": "working",
+                    "title": null, "workspace": "api", "tab": "agents", "repoId": api_id,
+                },
+            ],
         })
     );
+
+    assert_eq!(
+        harness.ok("focus_agent", json!({ "paneId": "w2:p1" })),
+        Value::Null
+    );
+    assert_eq!(fake.requests("agent.focus"), [json!({ "target": "w2:p1" })]);
     assert_eq!(fake.requests("events.subscribe").len(), 1);
 
     assert_eq!(

@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use ts_rs::TS;
 
+use crate::session::Pane;
 use crate::{AgentState, Session};
 
 /// One agent working in a repository.
@@ -19,6 +20,22 @@ pub struct AgentSummary {
     pub agent: String,
     pub state: AgentState,
     pub title: Option<String>,
+}
+
+/// An agent in any herdr workspace, as listed in the sidebar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AgentEntry {
+    pub pane_id: String,
+    /// e.g. "claude" or "codex".
+    pub agent: String,
+    pub state: AgentState,
+    pub title: Option<String>,
+    /// The label of the herdr workspace (space) the agent runs in.
+    pub workspace: String,
+    /// The label of its tab, if it has one.
+    pub tab: Option<String>,
 }
 
 /// The agents working in one repository.
@@ -85,12 +102,7 @@ impl Session {
     ) -> HashMap<K, RepoAgents> {
         let mut found: HashMap<K, Vec<AgentSummary>> = HashMap::new();
         for agent in &self.agents {
-            let directory = agent
-                .foreground_cwd
-                .as_deref()
-                .or(agent.cwd.as_deref())
-                .or_else(|| self.pane(&agent.pane_id).and_then(|pane| pane.directory()));
-            let Some(key) = directory.and_then(|directory| repos.locate(directory)) else {
+            let Some(key) = self.agent_repo(agent, repos) else {
                 continue;
             };
             found.entry(key.clone()).or_default().push(AgentSummary {
@@ -113,6 +125,62 @@ impl Session {
                 (key, RepoAgents { state, agents })
             })
             .collect()
+    }
+
+    /// Every agent in the session with the repository it works in, if any:
+    /// most urgent first, then in workspace order.
+    pub fn agent_list<K: Clone + Eq + Hash>(
+        &self,
+        repos: &RepoMatcher<K>,
+    ) -> Vec<(Option<K>, AgentEntry)> {
+        let mut listed: Vec<(u32, Option<K>, AgentEntry)> = self
+            .agents
+            .iter()
+            .map(|agent| {
+                let workspace = self.workspace(&agent.workspace_id);
+                let entry = AgentEntry {
+                    pane_id: agent.pane_id.clone(),
+                    agent: agent.kind().to_owned(),
+                    state: agent.agent_status,
+                    title: agent.title().map(str::to_owned),
+                    workspace: workspace.map_or_else(
+                        || agent.workspace_id.clone(),
+                        |workspace| workspace.label.clone(),
+                    ),
+                    tab: agent
+                        .tab_id
+                        .as_deref()
+                        .and_then(|id| self.tab(id))
+                        .and_then(|tab| tab.label.clone()),
+                };
+                let number = workspace.map_or(u32::MAX, |workspace| workspace.number);
+                (number, self.agent_repo(agent, repos).cloned(), entry)
+            })
+            .collect();
+        listed.sort_by(|(a_number, _, a), (b_number, _, b)| {
+            b.state
+                .urgency()
+                .cmp(&a.state.urgency())
+                .then(a_number.cmp(b_number))
+                .then_with(|| a.pane_id.cmp(&b.pane_id))
+        });
+        listed
+            .into_iter()
+            .map(|(_, key, entry)| (key, entry))
+            .collect()
+    }
+
+    fn agent_repo<'r, K: Clone + Eq + Hash>(
+        &self,
+        agent: &crate::session::Agent,
+        repos: &'r RepoMatcher<K>,
+    ) -> Option<&'r K> {
+        agent
+            .foreground_cwd
+            .as_deref()
+            .or(agent.cwd.as_deref())
+            .or_else(|| self.pane(&agent.pane_id).and_then(Pane::directory))
+            .and_then(|directory| repos.locate(directory))
     }
 
     /// The workspace to show for a repository: the one with the most panes
@@ -235,6 +303,34 @@ mod tests {
         assert!(!agents.contains_key("docs"));
         // Agents outside every repository are ignored.
         assert_eq!(agents.len(), 2);
+    }
+
+    #[test]
+    fn lists_every_agent_most_urgent_first() {
+        let repos = matcher(&[("api", "/home/dev/api"), ("web", "/home/dev/web")]);
+        let listed = session().agent_list(&repos);
+        let summary: Vec<_> = listed
+            .iter()
+            .map(|(repo, entry)| (entry.pane_id.as_str(), entry.state, *repo))
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("w1:p2", AgentState::Blocked, Some("api")),
+                ("w1:p4", AgentState::Done, Some("web")),
+                ("w1:p3", AgentState::Working, Some("api")),
+                // Spaces that are no repository are listed too.
+                ("w5:p2", AgentState::Idle, None),
+                ("w5:p1", AgentState::Unknown, None),
+            ]
+        );
+        let (_, first) = &listed[0];
+        assert_eq!(first.workspace, "api");
+        assert_eq!(first.tab.as_deref(), Some("agents"));
+        assert_eq!(first.agent, "codex");
+        let (_, unlabelled) = &listed[3];
+        assert_eq!(unlabelled.workspace, "scratch");
+        assert_eq!(unlabelled.tab, None);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { RepoAgents } from "../../lib/api";
-  import Icon from "../../lib/ui/Icon.svelte";
   import { describeAgents } from "./agent-text";
+  import AgentStateIcon from "./AgentStateIcon.svelte";
 
   interface Props {
     agents: RepoAgents;
@@ -19,7 +19,7 @@
   aria-label={description.replaceAll("\n", "; ")}
   title={description}
 >
-  <Icon name="agent" size={14} />
+  <AgentStateIcon state={agents.state} />
   {#if agents.agents.length > 1}
     <span class="count">{agents.agents.length}</span>
   {/if}
@@ -38,13 +38,5 @@
   .badge[data-state="blocked"] {
     color: var(--color-agent-blocked);
     font-weight: 600;
-  }
-
-  .badge[data-state="done"] {
-    color: var(--color-agent-done);
-  }
-
-  .badge[data-state="working"] {
-    color: var(--color-agent-working);
   }
 </style>

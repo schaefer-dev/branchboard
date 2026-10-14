@@ -6,6 +6,8 @@ class ViewStore {
   detail = $state<WorkList>("changes");
   /** Height of the branch list set with the splitter; `null` fits up to eight rows. Session only. */
   branchHeight = $state<number | null>(null);
+  /** Height of the agents list set with the splitter; `null` fits up to five agents. Session only. */
+  agentsHeight = $state<number | null>(null);
   /** Asks a list to take keyboard focus; `seq` makes repeated requests distinct. */
   focusRequest = $state<{ list: WorkList; seq: number } | null>(null);
 

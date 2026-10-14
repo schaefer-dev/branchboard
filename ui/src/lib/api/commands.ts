@@ -66,4 +66,5 @@ export const api = {
 
   getAgents: () => call<AgentsSnapshot>("get_agents"),
   openInHerdr: (repoId: RepoId) => call<null>("open_in_herdr", { repoId }),
+  focusAgent: (paneId: string) => call<null>("focus_agent", { paneId }),
 } as const;

@@ -103,6 +103,15 @@ impl HerdrLink {
         };
         match subscribe(&endpoint).await {
             Ok((subscription, session)) => {
+                if session.protocol != crate::TESTED_PROTOCOL {
+                    tracing::info!(
+                        version = %session.version,
+                        protocol = session.protocol,
+                        tested_version = crate::TESTED_VERSION,
+                        tested_protocol = crate::TESTED_PROTOCOL,
+                        "herdr speaks a protocol this integration was not tested with"
+                    );
+                }
                 self.0.live.store(true, Ordering::Release);
                 self.0.publish(Some(session));
                 let inner = Arc::clone(&self.0);
@@ -155,6 +164,15 @@ impl HerdrLink {
             .and_then(Value::as_str)
             .map(str::to_owned);
         Ok(Opened::Created { workspace_id })
+    }
+}
+
+impl HerdrLink {
+    /// Shows the agent in pane `pane_id`: its workspace, tab and pane.
+    pub async fn focus_agent(&self, pane_id: &str) -> Result<(), HerdrError> {
+        let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
+        connection::request::<Value>(endpoint, "agent.focus", json!({ "target": pane_id })).await?;
+        Ok(())
     }
 }
 

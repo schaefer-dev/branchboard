@@ -10,7 +10,7 @@ use tokio::sync::OnceCell;
 
 use workspace::{Editor, RepoId, Workspace, WorkspaceError, WorkspaceSnapshot};
 
-use crate::dto::{AgentsSnapshot, RepoAgents};
+use crate::dto::{AgentRow, AgentsSnapshot, RepoAgents};
 use crate::error::AppError;
 
 /// Window focus refreshes all summaries, but at most this often.
@@ -148,10 +148,17 @@ impl Inner {
             return AgentsSnapshot {
                 available: false,
                 repos: Vec::new(),
+                agents: Vec::new(),
             };
         };
         let snapshot = self.workspace.snapshot().await;
-        let mut found = session.repo_agents(&repo_matcher(&snapshot));
+        let matcher = repo_matcher(&snapshot);
+        let agents = session
+            .agent_list(&matcher)
+            .into_iter()
+            .map(|(repo_id, agent)| AgentRow { agent, repo_id })
+            .collect();
+        let mut found = session.repo_agents(&matcher);
         let repos = snapshot
             .repos
             .into_iter()
@@ -167,6 +174,7 @@ impl Inner {
         AgentsSnapshot {
             available: true,
             repos,
+            agents,
         }
     }
 

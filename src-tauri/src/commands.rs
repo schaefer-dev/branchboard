@@ -347,3 +347,9 @@ pub async fn open_in_herdr(state: State<'_, AppState>, repo_id: RepoId) -> Comma
         .await?;
     Ok(())
 }
+
+/// Shows an agent in herdr: its workspace, tab and pane.
+#[tauri::command]
+pub async fn focus_agent(state: State<'_, AppState>, pane_id: String) -> CommandResult<()> {
+    Ok(state.herdr.focus_agent(&pane_id).await?)
+}

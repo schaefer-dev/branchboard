@@ -76,10 +76,19 @@
       {
         "tab_id": "w1:t1",
         "workspace_id": "w1",
-        "label": "agents",
         "number": 1,
         "focused": true,
-        "pane_count": 4
+        "pane_count": 4,
+        "agent_status": "blocked",
+        "label": "agents"
+      },
+      {
+        "tab_id": "w5:t1",
+        "workspace_id": "w5",
+        "number": 1,
+        "focused": false,
+        "pane_count": 2,
+        "agent_status": "idle"
       }
     ],
     "panes": [
