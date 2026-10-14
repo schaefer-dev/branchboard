@@ -10,14 +10,20 @@ import type { AgentsSnapshot } from "./generated/AgentsSnapshot";
 import type { AppInfo } from "./generated/AppInfo";
 import type { BranchCommits } from "./generated/BranchCommits";
 import type { BranchList } from "./generated/BranchList";
+import type { CommitResult } from "./generated/CommitResult";
 import type { DiffRequest } from "./generated/DiffRequest";
 import type { FileDiff } from "./generated/FileDiff";
 import type { GitInfo } from "./generated/GitInfo";
 import type { GroupId } from "./generated/GroupId";
+import type { HeadCommit } from "./generated/HeadCommit";
 import type { RepoId } from "./generated/RepoId";
+import type { ReviewDiffRequest } from "./generated/ReviewDiffRequest";
+import type { ReviewFiles } from "./generated/ReviewFiles";
+import type { ReviewTarget } from "./generated/ReviewTarget";
 import type { StatusSnapshot } from "./generated/StatusSnapshot";
 import type { TerminalExit } from "./generated/TerminalExit";
 import type { TerminalInfo } from "./generated/TerminalInfo";
+import type { UndoCommitResult } from "./generated/UndoCommitResult";
 import type { WorkspaceSnapshot } from "./generated/WorkspaceSnapshot";
 
 export const api = {
@@ -54,6 +60,11 @@ export const api = {
     call<StatusSnapshot>("unstage_paths", { repoId, paths }),
   discardPaths: (repoId: RepoId, paths: string[]) =>
     call<StatusSnapshot>("discard_paths", { repoId, paths }),
+  commit: (repoId: RepoId, message: string, amend: boolean) =>
+    call<CommitResult>("commit", { repoId, message, amend }),
+  /** `null` before the first commit. */
+  getHeadCommit: (repoId: RepoId) => call<HeadCommit | null>("get_head_commit", { repoId }),
+  undoLastCommit: (repoId: RepoId) => call<UndoCommitResult>("undo_last_commit", { repoId }),
 
   openInEditor: (repoId: RepoId, path: string | null, line: number | null) =>
     call<null>("open_in_editor", { repoId, path, line }),
@@ -61,6 +72,11 @@ export const api = {
   getBranches: (repoId: RepoId) => call<BranchList>("get_branches", { repoId }),
   getBranchCommits: (repoId: RepoId, branch: string) =>
     call<BranchCommits>("get_branch_commits", { repoId, branch }),
+  /** A branch is reviewed from its merge base with the mainline, a commit against its parent. */
+  getReviewFiles: (repoId: RepoId, target: ReviewTarget) =>
+    call<ReviewFiles>("get_review_files", { repoId, target }),
+  getReviewDiff: (repoId: RepoId, request: ReviewDiffRequest) =>
+    call<FileDiff>("get_review_diff", { repoId, request }),
   switchBranch: (repoId: RepoId, branch: string) =>
     call<BranchList>("switch_branch", { repoId, branch }),
   fetchRepo: (repoId: RepoId) => call<BranchList>("fetch_repo", { repoId }),

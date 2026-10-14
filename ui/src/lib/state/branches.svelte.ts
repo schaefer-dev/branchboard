@@ -39,24 +39,30 @@ export class BranchesStore {
 
   private token = 0;
   private commitsToken = 0;
+  /** The last reported HEAD commit; `undefined` until the first status event. */
+  private headOid: string | null | undefined = undefined;
 
   async init(): Promise<void> {
     await onRepoFetch((update) => {
       this.onFetch(update);
     });
     await onRepoStatus((update) => {
-      // A changed HEAD (e.g. a switch or commit elsewhere) changes the list.
+      if (update.repoId !== this.repoId) return;
+      // A switch or a new commit (here or in a terminal) changes the list.
       const head = update.status.head;
       const name = head.kind === "detached" ? null : head.name;
-      if (update.repoId === this.repoId && name !== (this.current?.name ?? null)) {
-        void this.reload();
-      }
+      const oid = update.status.headOid;
+      // Until the first status the HEAD is unknown; reloading once is cheap.
+      const moved = oid !== this.headOid;
+      this.headOid = oid;
+      if (moved || name !== (this.current?.name ?? null)) void this.reload();
     });
   }
 
   async show(repoId: RepoId | null): Promise<void> {
     if (repoId === this.repoId) return;
     this.repoId = repoId;
+    this.headOid = undefined;
     this.list = null;
     this.error = null;
     this.cursor = null;

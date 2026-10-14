@@ -17,6 +17,7 @@
   import { appInfo } from "./lib/state/app-info.svelte";
   import { branches } from "./lib/state/branches.svelte";
   import { changes } from "./lib/state/changes.svelte";
+  import { commit } from "./lib/state/commit.svelte";
   import { notices } from "./lib/state/notices.svelte";
   import { terminal } from "./lib/state/terminal.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
@@ -32,6 +33,7 @@
     Promise.all([
       changes.init(),
       branches.init(),
+      commit.init(),
       workspace.init(),
       agents.init(),
       terminal.init(),

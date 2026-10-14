@@ -130,6 +130,10 @@ impl From<WorkspaceError> for AppError {
                 Self::new(Kind::NotFound, message, None)
             }
             WorkspaceError::EmptyName
+            | WorkspaceError::EmptyMessage
+            | WorkspaceError::InvalidRevision
+            | WorkspaceError::NothingToUndo
+            | WorkspaceError::CommitPublished
             | WorkspaceError::DuplicateGroup(_)
             | WorkspaceError::AlreadyRegistered(_) => Self::new(Kind::InvalidInput, message, None),
             WorkspaceError::Save(source) => Self::new(Kind::Io, message, Some(source.to_string())),

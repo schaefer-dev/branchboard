@@ -6,7 +6,7 @@
   import { terminal } from "../../lib/state/terminal.svelte";
   import { view } from "../../lib/state/view.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
-  import CommitsPane from "../branches/CommitsPane.svelte";
+  import ReviewPane from "../branches/ReviewPane.svelte";
   import DiffPane from "../diff/DiffPane.svelte";
 
   const showTerminal = $derived(terminal.available && view.right === "terminal");
@@ -49,7 +49,7 @@
 <div class="right">
   <div class="pane" class:hidden={showTerminal}>
     {#if view.detail === "branches"}
-      <CommitsPane />
+      <ReviewPane />
     {:else}
       <DiffPane />
     {/if}

@@ -3,7 +3,7 @@
   import { terminal } from "../../lib/state/terminal.svelte";
   import { view } from "../../lib/state/view.svelte";
 
-  const detailLabel = $derived(view.detail === "branches" ? "Commits" : "Diff");
+  const detailLabel = $derived(view.detail === "branches" ? "Review" : "Diff");
   const terminalTitle = $derived(
     `Terminal (${commands.shortcutLabel("terminal.show") ?? ""})`.replace(" ()", ""),
   );

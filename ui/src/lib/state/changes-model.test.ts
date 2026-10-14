@@ -12,6 +12,7 @@ const file = (path: string, kind: FileChange["kind"] = "modified"): FileChange =
 function status(staged: string[], unstaged: string[]): StatusSnapshot {
   return {
     head: { kind: "branch", name: "main" },
+    headOid: "0".repeat(40),
     staged: staged.map((p) => file(p)),
     unstaged: unstaged.map((p) => file(p)),
   };

@@ -121,22 +121,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             });
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::Focused(focused) = event {
-                let state = window.state::<AppState>();
-                state.set_focused(*focused);
-                if *focused {
-                    // herdr may have been started (or restarted) meanwhile.
-                    let herdr = state.herdr.clone();
-                    tauri::async_runtime::spawn(async move { herdr.connect().await });
-                    state.workspace.refresh_status();
-                    state.spawn_background_fetch();
-                    if state.take_focus_refresh() {
-                        state.spawn_summary_refresh(None);
-                    }
-                }
-            }
-        })
+        .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
             commands::get_git_info,
@@ -158,9 +143,14 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::stage_paths,
             commands::unstage_paths,
             commands::discard_paths,
+            commands::commit,
+            commands::get_head_commit,
+            commands::undo_last_commit,
             commands::open_in_editor,
             commands::get_branches,
             commands::get_branch_commits,
+            commands::get_review_files,
+            commands::get_review_diff,
             commands::switch_branch,
             commands::fetch_repo,
             commands::set_mainline,
@@ -176,6 +166,25 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::terminal_resize,
             commands::terminal_close,
         ])
+}
+
+/// Window focus refreshes what may have changed while the app was in the
+/// background.
+fn on_window_event<R: Runtime>(window: &tauri::Window<R>, event: &WindowEvent) {
+    if let WindowEvent::Focused(focused) = event {
+        let state = window.state::<AppState>();
+        state.set_focused(*focused);
+        if *focused {
+            // herdr may have been started (or restarted) meanwhile.
+            let herdr = state.herdr.clone();
+            tauri::async_runtime::spawn(async move { herdr.connect().await });
+            state.workspace.refresh_status();
+            state.spawn_background_fetch();
+            if state.take_focus_refresh() {
+                state.spawn_summary_refresh(None);
+            }
+        }
+    }
 }
 
 fn init_tracing() {

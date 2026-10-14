@@ -9,10 +9,15 @@
 
 use std::path::PathBuf;
 
-use git_core::{BranchList, DiffRequest, FileDiff, StatusSnapshot};
+use git_core::{
+    BranchList, DiffRequest, FileDiff, HeadCommit, ReviewDiffRequest, ReviewFiles, ReviewTarget,
+    StatusSnapshot,
+};
 use tauri::State;
 use tauri::ipc::{Channel, InvokeResponseBody};
-use workspace::{Added, BranchCommits, GroupId, RepoId, WorkspaceSnapshot};
+use workspace::{
+    Added, BranchCommits, CommitResult, GroupId, RepoId, UndoCommitResult, WorkspaceSnapshot,
+};
 
 use crate::dto::{AddRepoResult, AgentsSnapshot, AppInfo, GitInfo, TerminalInfo};
 use crate::error::AppError;
@@ -228,6 +233,47 @@ pub async fn discard_paths(
     Ok(state.workspace.discard(git, &repo_id, &paths).await?)
 }
 
+/// Commits the staged changes; `amend` replaces the last commit instead.
+#[tauri::command]
+pub async fn commit(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    message: String,
+    amend: bool,
+) -> CommandResult<CommitResult> {
+    let git = state.git().await?;
+    state
+        .workspace
+        .commit(git, &repo_id, &message, amend)
+        .await
+        .map_err(|error| AppError::from(error).when_git_failed("Commit failed."))
+}
+
+/// The commit `HEAD` points to; `null` before the first commit.
+#[tauri::command]
+pub async fn get_head_commit(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<Option<HeadCommit>> {
+    let git = state.git().await?;
+    Ok(state.workspace.head_commit(git, &repo_id).await?)
+}
+
+/// Takes back the last commit if it is not on a remote; its changes stay
+/// staged.
+#[tauri::command]
+pub async fn undo_last_commit(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<UndoCommitResult> {
+    let git = state.git().await?;
+    state
+        .workspace
+        .undo_last_commit(git, &repo_id)
+        .await
+        .map_err(|error| AppError::from(error).when_git_failed("Could not undo the commit."))
+}
+
 #[tauri::command]
 pub async fn get_branches(
     state: State<'_, AppState>,
@@ -263,6 +309,27 @@ pub async fn get_branch_commits(
         .workspace
         .branch_commits(git, &repo_id, &branch)
         .await?)
+}
+
+/// The files a branch (against the mainline) or a single commit changes.
+#[tauri::command]
+pub async fn get_review_files(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    target: ReviewTarget,
+) -> CommandResult<ReviewFiles> {
+    let git = state.git().await?;
+    Ok(state.workspace.review_files(git, &repo_id, &target).await?)
+}
+
+#[tauri::command]
+pub async fn get_review_diff(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    request: ReviewDiffRequest,
+) -> CommandResult<FileDiff> {
+    let git = state.git().await?;
+    Ok(state.workspace.review_diff(git, &repo_id, &request).await?)
 }
 
 #[tauri::command]

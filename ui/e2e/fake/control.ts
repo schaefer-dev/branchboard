@@ -22,8 +22,8 @@ export interface FakeControl {
   setPickedFolders(paths: string[]): void;
   /** Simulates dropping folders onto the window. */
   drop(paths: string[]): Promise<void>;
-  /** Makes the next branch switch or fetch fail with git's `stderr`. */
-  failNext(command: "switch_branch" | "fetch_repo", stderr: string): void;
+  /** Makes the next branch switch, fetch or commit fail with git's `stderr`. */
+  failNext(command: "switch_branch" | "fetch_repo" | "commit", stderr: string): void;
   /** Everything typed into the embedded terminal since it opened. */
   terminalInput(): string;
   /** The size the terminal was opened with or last resized to. */

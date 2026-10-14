@@ -6,11 +6,13 @@
 
 mod branches;
 mod changes;
+mod commit;
 mod diff;
 mod discovery;
 mod error;
 mod log;
 mod repository;
+mod review;
 mod runner;
 mod status;
 mod summary;
@@ -20,12 +22,14 @@ use std::path::Path;
 
 pub use branches::{AheadBehind, Branch, BranchList, UpstreamState};
 pub use changes::{DiffArea, DiffRequest, DiffSources};
+pub use commit::HeadCommit;
 pub use diff::{
     DiffHunk, DiffLimits, DiffLine, DiffLineKind, FileDiff, Token, TokenKind, parse_diff,
 };
 pub use discovery::DiscoveryOptions;
 pub use error::GitError;
 pub use log::{CommitList, CommitSummary};
+pub use review::{ReviewDiffRequest, ReviewFile, ReviewFiles, ReviewRange, ReviewTarget};
 pub use runner::{GitCommand, GitOutput, GitRunner};
 pub use status::{ChangeKind, FileChange, StatusSnapshot};
 pub use summary::{Head, RepoSummary};

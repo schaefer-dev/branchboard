@@ -14,6 +14,9 @@ pub enum WorkspaceError {
     #[error("Enter a name.")]
     EmptyName,
 
+    #[error("Enter a commit message.")]
+    EmptyMessage,
+
     #[error("A group named \u{201c}{0}\u{201d} already exists.")]
     DuplicateGroup(String),
 
@@ -22,6 +25,15 @@ pub enum WorkspaceError {
 
     #[error(transparent)]
     Git(#[from] GitError),
+
+    #[error("This commit is not available.")]
+    InvalidRevision,
+
+    #[error("There is no earlier commit to go back to.")]
+    NothingToUndo,
+
+    #[error("This commit is already on a remote. Undoing it would rewrite shared history.")]
+    CommitPublished,
 
     #[error(
         "VS Code was not found. In VS Code, run \"Shell Command: Install 'code' command in PATH\"."

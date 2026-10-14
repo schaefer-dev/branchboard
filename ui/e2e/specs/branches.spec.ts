@@ -50,18 +50,18 @@ test.describe("branches", () => {
 
   test("shows the commits a branch is ahead and behind", async ({ page }) => {
     await branch(page, "feature/login-rate-limit").click();
-    const pane = page.getByRole("region", { name: "Branch commits" });
+    const pane = page.getByRole("region", { name: "Branch review" });
     await expect(pane.getByText("feature/login-rate-limit", { exact: true })).toBeVisible();
     await expect(
-      pane.getByRole("region", { name: "Ahead of origin/development" }).getByRole("listitem"),
+      pane.getByRole("group", { name: "Ahead of origin/development" }).getByRole("option"),
     ).toHaveCount(3);
 
     await branch(page, "fix/header-overflow").click();
-    const ahead = pane.getByRole("region", { name: "Ahead of origin/development" });
-    await expect(ahead.getByRole("listitem")).toHaveCount(1);
+    const ahead = pane.getByRole("group", { name: "Ahead of origin/development" });
+    await expect(ahead.getByRole("option")).toHaveCount(1);
     await expect(ahead).toContainText("update header.css");
     await expect(
-      pane.getByRole("region", { name: "Behind origin/development" }).getByRole("listitem"),
+      pane.getByRole("group", { name: "Behind origin/development" }).getByRole("option"),
     ).toHaveCount(2);
 
     await branch(page, "development").click();
@@ -157,7 +157,7 @@ test.describe("branches", () => {
     const key = await mod(page);
     await page.keyboard.press(`${key}+2`);
     await expect(board(page)).toBeFocused();
-    await expect(page.getByRole("region", { name: "Branch commits" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Branch review" })).toBeVisible();
     await page.keyboard.press(`${key}+1`);
     await expect(page.getByRole("listbox", { name: "Changed files" })).toBeFocused();
     await expect(page.getByRole("region", { name: "Diff" })).toBeVisible();

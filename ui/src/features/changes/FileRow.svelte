@@ -1,38 +1,61 @@
 <script lang="ts">
-  import type { ChangeItem } from "../../lib/state/changes-model";
+  import type { ChangeKind } from "../../lib/api";
   import { splitPath } from "../../lib/state/changes-model";
   import { changeKindLabel, changeKindLetter } from "./change-kind";
 
   interface Props {
-    item: ChangeItem;
+    /** Element id, for `aria-activedescendant`. */
+    id: string;
+    /** Identifies the row in its list (`data-key`). */
+    key: string;
+    path: string;
+    origPath: string | null;
+    kind: ChangeKind;
     selected: boolean;
     cursor: boolean;
+    /** Line counts shown at the end of the row; `null` hides them (e.g. binary files). */
+    additions?: number | null;
+    deletions?: number | null;
   }
 
-  let { item, selected, cursor }: Props = $props();
+  let {
+    id,
+    key,
+    path,
+    origPath,
+    kind,
+    selected,
+    cursor,
+    additions = null,
+    deletions = null,
+  }: Props = $props();
 
-  const parts = $derived(splitPath(item.change.path));
+  const parts = $derived(splitPath(path));
   const title = $derived(
-    item.change.origPath
-      ? `${changeKindLabel[item.change.kind]} from ${item.change.origPath}`
-      : `${changeKindLabel[item.change.kind]}: ${item.change.path}`,
+    origPath ? `${changeKindLabel[kind]} from ${origPath}` : `${changeKindLabel[kind]}: ${path}`,
   );
 </script>
 
 <div
-  id="change-{item.key}"
+  {id}
   class="file"
   class:selected
   class:cursor
   role="option"
   aria-selected={selected}
-  data-key={item.key}
+  data-key={key}
   {title}
 >
-  <span class="badge kind-{item.change.kind}">{changeKindLetter[item.change.kind]}</span>
+  <span class="badge kind-{kind}">{changeKindLetter[kind]}</span>
   <span class="name">{parts.name}</span>
   {#if parts.dir}
     <span class="dir">{parts.dir}</span>
+  {/if}
+  {#if additions !== null && deletions !== null}
+    <span class="stats">
+      <span class="additions">+{additions}</span>
+      <span class="deletions">−{deletions}</span>
+    </span>
   {/if}
 </div>
 
@@ -55,7 +78,7 @@
     background: var(--color-row-selected);
   }
 
-  :global(.changes:focus-visible) .file.cursor {
+  :global([role="listbox"]:focus-visible) .file.cursor {
     box-shadow: inset var(--focus-ring);
   }
 
@@ -93,6 +116,23 @@
     max-width: 70%;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .stats {
+    display: flex;
+    flex: none;
+    gap: var(--space-2);
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .additions {
+    color: var(--color-added);
+  }
+
+  .deletions {
+    color: var(--color-deleted);
   }
 
   .dir {

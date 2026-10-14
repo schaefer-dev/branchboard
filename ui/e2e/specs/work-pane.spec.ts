@@ -45,7 +45,7 @@ test.describe("work pane", () => {
   });
 
   test("the right pane follows the list used last", async ({ page }) => {
-    const commits = page.getByRole("region", { name: "Branch commits" });
+    const commits = page.getByRole("region", { name: "Branch review" });
     await changesList(page).locator('[data-key="unstaged:src/handlers/login.ts"]').click();
     await expect(diffPane(page)).toBeVisible();
 

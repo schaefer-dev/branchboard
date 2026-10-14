@@ -6,6 +6,7 @@ import { agents } from "../../lib/state/agents.svelte";
 import { branches } from "../../lib/state/branches.svelte";
 import { terminal } from "../../lib/state/terminal.svelte";
 import { changes } from "../../lib/state/changes.svelte";
+import { commit } from "../../lib/state/commit.svelte";
 import { view } from "../../lib/state/view.svelte";
 import { TERMINAL_FONT_SIZE, workspace } from "../../lib/state/workspace.svelte";
 import { openRepoInHerdr } from "../agents/open-in-herdr";
@@ -120,6 +121,40 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       title: "Unstage all changes",
       enabled: () => (changes.status?.staged.length ?? 0) > 0,
       run: () => changes.unstageAll(),
+    }),
+    commands.register({
+      id: "commit.focus",
+      title: "Write commit message",
+      shortcut: { key: "3", mod: true },
+      enabled: () => usableRepo() !== null && changes.status !== null,
+      run: () => {
+        commit.focus();
+      },
+    }),
+    commands.register({
+      id: "commit.run",
+      title: "Commit staged changes",
+      enabled: () => usableRepo() !== null && changes.status !== null,
+      run: () => {
+        // Without a summary there is nothing to commit yet; go write one.
+        if (commit.canCommit) void commit.commit();
+        else commit.focus();
+      },
+    }),
+    commands.register({
+      id: "commit.amend",
+      title: "Amend last commit",
+      enabled: () => usableRepo() !== null && commit.head !== null && !commit.busy,
+      run: () => {
+        commit.setAmend(true);
+        commit.focus();
+      },
+    }),
+    commands.register({
+      id: "commit.undo",
+      title: "Undo last commit",
+      enabled: () => usableRepo() !== null && commit.canUndo,
+      run: () => commit.undo(),
     }),
     commands.register({
       id: "branches.compare",

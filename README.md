@@ -25,8 +25,14 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
 - **Review and stage.** Inspect syntax-highlighted unified diffs, stage or unstage individual
   files or a selection, and discard unstaged changes with confirmation. Untracked files are
   moved to the trash when discarded.
+- **Commit without leaving.** Write a summary and description below the changes and commit
+  with Cmd/Ctrl+Enter. You can amend the last commit or undo it while it is not pushed.
+  Hooks and signing run as configured, and a failing hook shows its output. Unfinished
+  messages are kept per repository.
+- **Review whole branches.** Select a branch to see everything it adds since it left the
+  comparison branch, file by file. You can also review single commits, ahead or behind.
 - **Know where branches stand.** View ahead/behind counts against a configurable comparison
-  branch, inspect commits, and switch branches. Fetch manually or in the background.
+  branch, and switch branches. Fetch manually or in the background.
 - **Stay on the keyboard.** Use the command palette and shortcuts to navigate, fetch, or open
   a repository or changed file in VS Code.
 - **Light and dark themes.** The interface follows your system appearance.
@@ -96,22 +102,24 @@ The default comparison branch is `origin/development`, falling back to `origin/m
 
 Use `⌘` on macOS and `Ctrl` on Windows.
 
-| Action            | macOS       | Windows        |
-| ----------------- | ----------- | -------------- |
-| Switch repository | `⌘ P`       | `Ctrl P`       |
-| Command palette   | `⌘ K`       | `Ctrl K`       |
-| Add repositories  | `⌘ O`       | `Ctrl O`       |
-| Show changes      | `⌘ 1`       | `Ctrl 1`       |
-| Show branches     | `⌘ 2`       | `Ctrl 2`       |
-| Show terminal     | `⌘ Shift T` | `Ctrl Shift T` |
-| Fetch             | `⌘ Shift F` | `Ctrl Shift F` |
-| Open in VS Code   | `⌘ Shift E` | `Ctrl Shift E` |
+| Action               | macOS       | Windows        |
+| -------------------- | ----------- | -------------- |
+| Switch repository    | `⌘ P`       | `Ctrl P`       |
+| Command palette      | `⌘ K`       | `Ctrl K`       |
+| Add repositories     | `⌘ O`       | `Ctrl O`       |
+| Show changes         | `⌘ 1`       | `Ctrl 1`       |
+| Show branches        | `⌘ 2`       | `Ctrl 2`       |
+| Show terminal        | `⌘ Shift T` | `Ctrl Shift T` |
+| Fetch                | `⌘ Shift F` | `Ctrl Shift F` |
+| Open in VS Code      | `⌘ Shift E` | `Ctrl Shift E` |
+| Write commit message | `⌘ 3`       | `Ctrl 3`       |
+| Commit               | `⌘ Enter`   | `Ctrl Enter`   |
 
 ## Current scope
 
-Branchboard focuses on repository navigation, review, file-level staging, and branch switching.
-It does not currently provide committing, push/pull, hunk- or line-level staging, side-by-side
-diffs, a history graph, or conflict resolution.
+Branchboard focuses on repository navigation, review, file-level staging, committing, and
+branch switching. It does not currently provide push/pull, hunk- or line-level staging,
+side-by-side diffs, a history graph, or conflict resolution.
 
 ## Development
 

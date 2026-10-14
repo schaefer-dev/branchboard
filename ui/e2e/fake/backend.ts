@@ -14,12 +14,15 @@ import type {
   DiffRequest,
   FileChange,
   FileDiff,
+  HeadCommit,
   RepoView,
+  ReviewDiffRequest,
+  ReviewTarget,
   StatusSnapshot,
   WorkspaceSnapshot,
 } from "../../src/lib/api";
 import type { FakeControl, RecordedCall } from "./control";
-import { scenarios, type Scenario } from "./scenarios";
+import { fakeOid, headCommit, scenarios, type Scenario } from "./scenarios";
 
 type Args = Record<string, unknown>;
 
@@ -69,6 +72,8 @@ export class FakeBackend {
   private confirm = true;
   private pickedFolders: string[] = [];
   private failures = new Map<string, string>();
+  /** What each commit made through the fake contains, for undoing it. */
+  private committedFiles = new Map<string, FileChange[]>();
   private nextId = 1;
   /** The fake herdr client: what the app typed, its size and its output channel. */
   private terminal: {
@@ -164,6 +169,12 @@ export class FakeBackend {
             (c) => !paths.has(c.path) || c.kind === "conflicted",
           );
         });
+      case "commit":
+        return this.commit(String(args.repoId), String(args.message), Boolean(args.amend));
+      case "get_head_commit":
+        return this.headOf(String(args.repoId));
+      case "undo_last_commit":
+        return this.undoCommit(String(args.repoId));
       case "get_branches":
         return this.branchList(String(args.repoId));
       case "open_in_editor":
@@ -181,6 +192,21 @@ export class FakeBackend {
             behind: null,
           }
         );
+      }
+      case "get_review_files": {
+        const repo = this.repo(args.repoId);
+        const target = args.target as ReviewTarget;
+        const key = target.kind === "branch" ? `branch:${target.name}` : `commit:${target.oid}`;
+        return (
+          this.state.reviews[repo.id]?.[key] ??
+          fail("gitFailed", "Git did not respond as expected.", `${key} does not name a commit`)
+        );
+      }
+      case "get_review_diff": {
+        const repo = this.repo(args.repoId);
+        const request = args.request as ReviewDiffRequest;
+        const key = `${request.range.from}..${request.range.to}:${request.path}`;
+        return this.state.reviewDiffs[repo.id]?.[key] ?? emptyDiff;
       }
       case "switch_branch":
         return this.switchBranch(String(args.repoId), String(args.branch));
@@ -361,6 +387,7 @@ export class FakeBackend {
       });
       this.state.statuses[id] = {
         head: { kind: "branch", name: "development" },
+        headOid: fakeOid(id),
         staged: [],
         unstaged: [],
       };
@@ -436,9 +463,88 @@ export class FakeBackend {
     this.repo(repoId);
     return (this.state.statuses[repoId] ??= {
       head: { kind: "branch", name: "development" },
+      headOid: fakeOid(repoId),
       staged: [],
       unstaged: [],
     });
+  }
+
+  /** Commits of the current branch, oldest first. Repos without a recorded
+   * history have one pushed commit at their `headOid`. */
+  private historyOf(repoId: string): HeadCommit[] {
+    const oid = this.status(repoId).headOid;
+    return (this.state.history[repoId] ??= oid
+      ? [headCommit(oid, "Initial commit", { hasParent: false })]
+      : []);
+  }
+
+  private headOf(repoId: string): HeadCommit | null {
+    return structuredClone(this.historyOf(repoId).at(-1) ?? null);
+  }
+
+  private async commit(repoId: string, message: string, amend: boolean) {
+    this.takeFailure("commit", "Commit failed.");
+    const text = message.trim();
+    if (!text) fail("invalidInput", "Enter a commit message.");
+    const status = this.status(repoId);
+    const history = this.historyOf(repoId);
+    if (!amend && status.staged.length === 0) {
+      fail("gitFailed", "Commit failed.", "nothing added to commit");
+    }
+    const previous = amend ? history.pop() : undefined;
+    const files = [
+      ...(previous ? (this.committedFiles.get(previous.oid) ?? []) : []),
+      ...status.staged,
+    ];
+    const oid = fakeOid(`commit-${String(this.nextId++)}`);
+    const head = headCommit(oid, text, {
+      hasParent: amend ? (previous?.hasParent ?? false) : history.length > 0,
+      pushed: false,
+    });
+    history.push(head);
+    this.committedFiles.set(oid, files);
+    if (!amend) this.countNewCommit(repoId);
+    status.staged = [];
+    status.headOid = oid;
+    const snapshot = structuredClone(status);
+    await emit("repo-status", { repoId, status: snapshot });
+    return { status: snapshot, head: structuredClone(head) };
+  }
+
+  private async undoCommit(repoId: string) {
+    const history = this.historyOf(repoId);
+    const undone = history.at(-1);
+    if (!undone?.hasParent) fail("invalidInput", "There is no earlier commit to go back to.");
+    if (undone?.pushed) {
+      fail(
+        "invalidInput",
+        "This commit is already on a remote. Undoing it would rewrite shared history.",
+      );
+    }
+    history.pop();
+    const head = history.at(-1) ?? fail("internal", "The fake history is empty.");
+    const status = this.status(repoId);
+    for (const file of this.committedFiles.get(undone?.oid ?? "") ?? []) {
+      if (!status.staged.some((c) => c.path === file.path)) status.staged.push(file);
+    }
+    status.staged.sort(byPath);
+    status.headOid = head.oid;
+    const snapshot = structuredClone(status);
+    await emit("repo-status", { repoId, status: snapshot });
+    return {
+      status: snapshot,
+      head: structuredClone(head),
+      message: undone?.message ?? "",
+    };
+  }
+
+  /** A new commit puts the current branch one further ahead. */
+  private countNewCommit(repoId: string): void {
+    const branch = this.state.branches[repoId]?.branches.find((b) => b.current);
+    if (!branch) return;
+    if (branch.mainline) branch.mainline.ahead += 1;
+    if (branch.upstream.kind === "tracking") branch.upstream.counts.ahead += 1;
+    branch.committedAt = now();
   }
 
   private diffsOf(repoId: string): Record<string, FileDiff> {

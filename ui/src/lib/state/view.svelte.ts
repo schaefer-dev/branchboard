@@ -11,6 +11,9 @@ class ViewStore {
   branchHeight = $state<number | null>(null);
   /** Height of the agents list set with the splitter; `null` fits up to five agents. Session only. */
   agentsHeight = $state<number | null>(null);
+  /** Heights of the review's commit and file lists set with the splitters; `null` fits them. Session only. */
+  reviewCommitsHeight = $state<number | null>(null);
+  reviewFilesHeight = $state<number | null>(null);
   right = $state<RightPane>("detail");
   /** Asks the terminal to take keyboard focus; counts up per request. */
   terminalFocusRequest = $state(0);

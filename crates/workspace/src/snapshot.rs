@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use git_core::{CommitList, RepoSummary, StatusSnapshot};
+use git_core::{CommitList, HeadCommit, RepoSummary, StatusSnapshot};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -129,4 +129,26 @@ pub struct BranchCommits {
     /// Commits on the mainline but not on the branch; `None` if the mainline
     /// does not exist.
     pub behind: Option<CommitList>,
+}
+
+/// The repository after a commit.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CommitResult {
+    pub status: StatusSnapshot,
+    /// The new commit.
+    pub head: HeadCommit,
+}
+
+/// The repository after taking back its last commit.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UndoCommitResult {
+    pub status: StatusSnapshot,
+    /// The commit that `HEAD` points to now.
+    pub head: HeadCommit,
+    /// Message of the commit that was taken back, to write the next one from.
+    pub message: String,
 }

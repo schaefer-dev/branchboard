@@ -23,7 +23,7 @@ const emptyDiff: FileDiff = {
 };
 
 function status(staged: FileChange[], unstaged: FileChange[]): StatusSnapshot {
-  return { head: { kind: "branch", name: "main" }, staged, unstaged };
+  return { head: { kind: "branch", name: "main" }, headOid: "0".repeat(40), staged, unstaged };
 }
 
 const initial = status(

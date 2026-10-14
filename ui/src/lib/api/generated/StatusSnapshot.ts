@@ -2,4 +2,8 @@
 import type { FileChange } from "./FileChange";
 import type { Head } from "./Head";
 
-export type StatusSnapshot = { head: Head, staged: Array<FileChange>, unstaged: Array<FileChange>, };
+export type StatusSnapshot = { head: Head, 
+/**
+ * The commit `HEAD` points to; `None` on a branch without commits.
+ */
+headOid: string | null, staged: Array<FileChange>, unstaged: Array<FileChange>, };

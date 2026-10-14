@@ -142,7 +142,7 @@ impl Git {
 
     /// Contents of a blob such as `HEAD:src/main.rs`, or `None` if it does
     /// not exist or is too large.
-    async fn blob(&self, repo: &Path, spec: &str) -> Result<Option<String>, GitError> {
+    pub(crate) async fn blob(&self, repo: &Path, spec: &str) -> Result<Option<String>, GitError> {
         let output = self
             .runner()
             .command(["cat-file", "blob", spec])

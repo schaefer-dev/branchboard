@@ -1,12 +1,11 @@
 <script lang="ts">
   import { changes } from "../../lib/state/changes.svelte";
   import { splitPath } from "../../lib/state/changes-model";
-  import EmptyState from "../../lib/ui/EmptyState.svelte";
   import Icon from "../../lib/ui/Icon.svelte";
   import { openChangeInEditor } from "../editor/open-in-editor";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import RightSwitch from "../shell/RightSwitch.svelte";
-  import DiffView from "./DiffView.svelte";
+  import DiffBody from "./DiffBody.svelte";
 
   const item = $derived(changes.cursorItem);
   const state = $derived(changes.diff);
@@ -44,40 +43,11 @@
     <RightSwitch />
   </PaneHeader>
 
-  <div class="body">
-    {#if !item}
-      <EmptyState title="Select a file to see its changes." />
-    {:else if state.status === "error"}
-      <EmptyState title="The diff could not be loaded." hint={state.error.message} />
-    {:else if diff}
-      {#if diff.notes.length > 0}
-        <ul class="notes">
-          {#each diff.notes as note (note)}
-            <li>{note}</li>
-          {/each}
-        </ul>
-      {/if}
-      {#if diff.binary}
-        <EmptyState title="Binary file" hint="There is no text preview for this file." />
-      {:else if diff.tooLarge}
-        <div class="large">
-          <EmptyState
-            title="This diff is large"
-            hint="{formatter.format(diff.lineCount)} changed lines. Showing it may take a moment."
-          />
-          <button type="button" class="btn" onclick={() => void changes.loadDiff(true)}>
-            Show diff
-          </button>
-        </div>
-      {:else if diff.hunks.length === 0}
-        <EmptyState title="No content changes" />
-      {:else}
-        <div class="view">
-          <DiffView {diff} />
-        </div>
-      {/if}
-    {/if}
-  </div>
+  <DiffBody
+    state={item ? state : { status: "idle" }}
+    empty="Select a file to see its changes."
+    onShowFull={() => void changes.loadDiff(true)}
+  />
 </section>
 
 <style>
@@ -131,35 +101,5 @@
 
   .deletions {
     color: var(--color-deleted);
-  }
-
-  .body {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .view {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .notes {
-    margin: 0;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    list-style: none;
-  }
-
-  .large {
-    padding-bottom: var(--space-4);
-  }
-
-  .large .btn {
-    margin-left: var(--space-4);
   }
 </style>

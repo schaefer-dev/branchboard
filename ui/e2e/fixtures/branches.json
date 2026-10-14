@@ -53,22 +53,22 @@
           {
             "author": "Branchboard Tests",
             "authoredAt": 1767866400,
-            "oid": "4355c8241cf0084cc76336af37d55fdfe14b4255",
-            "shortOid": "4355c82",
+            "oid": "5ff2e76eaf046af4568205eb186ca183b0bb0199",
+            "shortOid": "5ff2e76",
             "subject": "update login.txt"
           },
           {
             "author": "Branchboard Tests",
             "authoredAt": 1767780000,
-            "oid": "f08bbbf0bd06260ed019eff9a7164d02803e8242",
-            "shortOid": "f08bbbf",
+            "oid": "96a58e1a5928bfc9cc5e7c23100a5a7c18386918",
+            "shortOid": "96a58e1",
             "subject": "update login.txt"
           },
           {
             "author": "Branchboard Tests",
             "authoredAt": 1767693600,
-            "oid": "3c85570cbc10e7a039fbde2d94f0518b67fad8a3",
-            "shortOid": "3c85570",
+            "oid": "82d8053b4bb86721df0fe51c234bdd79ac687d4e",
+            "shortOid": "82d8053",
             "subject": "update login.txt"
           }
         ],
@@ -219,5 +219,1056 @@
     "lastFetched": null,
     "mainline": "origin/development",
     "mainlineExists": true
+  },
+  "reviewDiffs": {
+    "4c1454537337c9ebb1f87440429a4dcfe669341d..4ac939df8a55437e91f1dc33aeef07b8244656a6:spike.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "idea",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "4c1454537337c9ebb1f87440429a4dcfe669341d..5ff2e76eaf046af4568205eb186ca183b0bb0199:login.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "3",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "4c1454537337c9ebb1f87440429a4dcfe669341d..5ff2e76eaf046af4568205eb186ca183b0bb0199:src/rate-limit.ts": {
+      "additions": 10,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1,10 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "/** Requests per user and minute. */",
+              "tokens": [
+                {
+                  "end": 36,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export const LIMIT = 60;",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 12,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 18,
+                  "kind": "number",
+                  "start": 13
+                },
+                {
+                  "end": 23,
+                  "kind": "number",
+                  "start": 21
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 3,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 4,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export function allow(hits: number): boolean {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 21,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 28
+                },
+                {
+                  "end": 44,
+                  "kind": "type",
+                  "start": 37
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 5,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "  return hits < LIMIT;",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 21,
+                  "kind": "number",
+                  "start": 16
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 6,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "}",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 7,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 8,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export function headers(hits: number): Record<string, string> {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 23,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 36,
+                  "kind": "type",
+                  "start": 30
+                },
+                {
+                  "end": 45,
+                  "kind": "type",
+                  "start": 39
+                },
+                {
+                  "end": 52,
+                  "kind": "type",
+                  "start": 46
+                },
+                {
+                  "end": 60,
+                  "kind": "type",
+                  "start": 54
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 9,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "  return { \"RateLimit-Remaining\": String(Math.max(0, LIMIT - hits)) };",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 32,
+                  "kind": "string",
+                  "start": 11
+                },
+                {
+                  "end": 40,
+                  "kind": "type",
+                  "start": 34
+                },
+                {
+                  "end": 45,
+                  "kind": "type",
+                  "start": 41
+                },
+                {
+                  "end": 49,
+                  "kind": "function",
+                  "start": 46
+                },
+                {
+                  "end": 51,
+                  "kind": "number",
+                  "start": 50
+                },
+                {
+                  "end": 58,
+                  "kind": "number",
+                  "start": 53
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 10,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "}",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 10,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "4c1454537337c9ebb1f87440429a4dcfe669341d..82d8053b4bb86721df0fe51c234bdd79ac687d4e:login.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "1",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "4c1454537337c9ebb1f87440429a4dcfe669341d..82d8053b4bb86721df0fe51c234bdd79ac687d4e:src/rate-limit.ts": {
+      "additions": 5,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1,5 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export const LIMIT = 10;",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 12,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 18,
+                  "kind": "number",
+                  "start": 13
+                },
+                {
+                  "end": 23,
+                  "kind": "number",
+                  "start": 21
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 3,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export function allow(hits: number): boolean {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 21,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 28
+                },
+                {
+                  "end": 44,
+                  "kind": "type",
+                  "start": 37
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 4,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "  return hits < LIMIT;",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 21,
+                  "kind": "number",
+                  "start": 16
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 5,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "}",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 5,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "82d8053b4bb86721df0fe51c234bdd79ac687d4e..96a58e1a5928bfc9cc5e7c23100a5a7c18386918:login.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1 +1 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "1",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "2",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 2,
+      "notes": [],
+      "tooLarge": false
+    },
+    "82d8053b4bb86721df0fe51c234bdd79ac687d4e..96a58e1a5928bfc9cc5e7c23100a5a7c18386918:src/rate-limit.ts": {
+      "additions": 6,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1,5 +1,10 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "export const LIMIT = 10;",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 12,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 18,
+                  "kind": "number",
+                  "start": 13
+                },
+                {
+                  "end": 23,
+                  "kind": "number",
+                  "start": 21
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "/** Requests per user and minute. */",
+              "tokens": [
+                {
+                  "end": 36,
+                  "kind": "comment",
+                  "start": 0
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 2,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export const LIMIT = 60;",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 12,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 18,
+                  "kind": "number",
+                  "start": 13
+                },
+                {
+                  "end": 23,
+                  "kind": "number",
+                  "start": 21
+                }
+              ]
+            },
+            {
+              "kind": "context",
+              "newLine": 3,
+              "noNewline": false,
+              "oldLine": 2,
+              "text": "",
+              "tokens": []
+            },
+            {
+              "kind": "context",
+              "newLine": 4,
+              "noNewline": false,
+              "oldLine": 3,
+              "text": "export function allow(hits: number): boolean {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 21,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 34,
+                  "kind": "type",
+                  "start": 28
+                },
+                {
+                  "end": 44,
+                  "kind": "type",
+                  "start": 37
+                }
+              ]
+            },
+            {
+              "kind": "context",
+              "newLine": 5,
+              "noNewline": false,
+              "oldLine": 4,
+              "text": "  return hits < LIMIT;",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 21,
+                  "kind": "number",
+                  "start": 16
+                }
+              ]
+            },
+            {
+              "kind": "context",
+              "newLine": 6,
+              "noNewline": false,
+              "oldLine": 5,
+              "text": "}",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 7,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 8,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "export function headers(hits: number): Record<string, string> {",
+              "tokens": [
+                {
+                  "end": 6,
+                  "kind": "keyword",
+                  "start": 0
+                },
+                {
+                  "end": 15,
+                  "kind": "keyword",
+                  "start": 7
+                },
+                {
+                  "end": 23,
+                  "kind": "function",
+                  "start": 16
+                },
+                {
+                  "end": 36,
+                  "kind": "type",
+                  "start": 30
+                },
+                {
+                  "end": 45,
+                  "kind": "type",
+                  "start": 39
+                },
+                {
+                  "end": 52,
+                  "kind": "type",
+                  "start": 46
+                },
+                {
+                  "end": 60,
+                  "kind": "type",
+                  "start": 54
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 9,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "  return { \"RateLimit-Remaining\": String(Math.max(0, LIMIT - hits)) };",
+              "tokens": [
+                {
+                  "end": 8,
+                  "kind": "keyword",
+                  "start": 2
+                },
+                {
+                  "end": 32,
+                  "kind": "string",
+                  "start": 11
+                },
+                {
+                  "end": 40,
+                  "kind": "type",
+                  "start": 34
+                },
+                {
+                  "end": 45,
+                  "kind": "type",
+                  "start": 41
+                },
+                {
+                  "end": 49,
+                  "kind": "function",
+                  "start": 46
+                },
+                {
+                  "end": 51,
+                  "kind": "number",
+                  "start": 50
+                },
+                {
+                  "end": 58,
+                  "kind": "number",
+                  "start": 53
+                }
+              ]
+            },
+            {
+              "kind": "added",
+              "newLine": 10,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "}",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 11,
+      "notes": [],
+      "tooLarge": false
+    },
+    "96a58e1a5928bfc9cc5e7c23100a5a7c18386918..5ff2e76eaf046af4568205eb186ca183b0bb0199:login.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1 +1 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "2",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "3",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 2,
+      "notes": [],
+      "tooLarge": false
+    },
+    "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008..d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9:app.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1 +1 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "v1",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "v2",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 2,
+      "notes": [],
+      "tooLarge": false
+    },
+    "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008..f228f569a576990d2944332c6e11d82687b7bc52:header.css": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 0,
+      "hunks": [
+        {
+          "header": "@@ -0,0 +1 @@",
+          "lines": [
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "a",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 0
+        }
+      ],
+      "lineCount": 1,
+      "notes": [
+        "new file mode 100644"
+      ],
+      "tooLarge": false
+    },
+    "d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9..4c1454537337c9ebb1f87440429a4dcfe669341d:app.txt": {
+      "additions": 1,
+      "binary": false,
+      "deletions": 1,
+      "hunks": [
+        {
+          "header": "@@ -1 +1 @@",
+          "lines": [
+            {
+              "kind": "removed",
+              "newLine": null,
+              "noNewline": false,
+              "oldLine": 1,
+              "text": "v2",
+              "tokens": []
+            },
+            {
+              "kind": "added",
+              "newLine": 1,
+              "noNewline": false,
+              "oldLine": null,
+              "text": "v3",
+              "tokens": []
+            }
+          ],
+          "newStart": 1,
+          "oldStart": 1
+        }
+      ],
+      "lineCount": 2,
+      "notes": [],
+      "tooLarge": false
+    }
+  },
+  "reviews": {
+    "branch:chore/old-cleanup": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "header.css"
+        }
+      ],
+      "range": {
+        "from": "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008",
+        "to": "f228f569a576990d2944332c6e11d82687b7bc52"
+      }
+    },
+    "branch:development": {
+      "files": [],
+      "range": {
+        "from": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+        "to": "4c1454537337c9ebb1f87440429a4dcfe669341d"
+      }
+    },
+    "branch:feature/login-rate-limit": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "login.txt"
+        },
+        {
+          "additions": 10,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "src/rate-limit.ts"
+        }
+      ],
+      "range": {
+        "from": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+        "to": "5ff2e76eaf046af4568205eb186ca183b0bb0199"
+      }
+    },
+    "branch:fix/header-overflow": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "header.css"
+        }
+      ],
+      "range": {
+        "from": "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008",
+        "to": "f228f569a576990d2944332c6e11d82687b7bc52"
+      }
+    },
+    "branch:spike/local-only": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "spike.txt"
+        }
+      ],
+      "range": {
+        "from": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+        "to": "4ac939df8a55437e91f1dc33aeef07b8244656a6"
+      }
+    },
+    "commit:4ac939df8a55437e91f1dc33aeef07b8244656a6": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "spike.txt"
+        }
+      ],
+      "range": {
+        "from": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+        "to": "4ac939df8a55437e91f1dc33aeef07b8244656a6"
+      }
+    },
+    "commit:4c1454537337c9ebb1f87440429a4dcfe669341d": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 1,
+          "kind": "modified",
+          "origPath": null,
+          "path": "app.txt"
+        }
+      ],
+      "range": {
+        "from": "d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9",
+        "to": "4c1454537337c9ebb1f87440429a4dcfe669341d"
+      }
+    },
+    "commit:5ff2e76eaf046af4568205eb186ca183b0bb0199": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 1,
+          "kind": "modified",
+          "origPath": null,
+          "path": "login.txt"
+        }
+      ],
+      "range": {
+        "from": "96a58e1a5928bfc9cc5e7c23100a5a7c18386918",
+        "to": "5ff2e76eaf046af4568205eb186ca183b0bb0199"
+      }
+    },
+    "commit:82d8053b4bb86721df0fe51c234bdd79ac687d4e": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "login.txt"
+        },
+        {
+          "additions": 5,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "src/rate-limit.ts"
+        }
+      ],
+      "range": {
+        "from": "4c1454537337c9ebb1f87440429a4dcfe669341d",
+        "to": "82d8053b4bb86721df0fe51c234bdd79ac687d4e"
+      }
+    },
+    "commit:96a58e1a5928bfc9cc5e7c23100a5a7c18386918": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 1,
+          "kind": "modified",
+          "origPath": null,
+          "path": "login.txt"
+        },
+        {
+          "additions": 6,
+          "deletions": 1,
+          "kind": "modified",
+          "origPath": null,
+          "path": "src/rate-limit.ts"
+        }
+      ],
+      "range": {
+        "from": "82d8053b4bb86721df0fe51c234bdd79ac687d4e",
+        "to": "96a58e1a5928bfc9cc5e7c23100a5a7c18386918"
+      }
+    },
+    "commit:d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 1,
+          "kind": "modified",
+          "origPath": null,
+          "path": "app.txt"
+        }
+      ],
+      "range": {
+        "from": "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008",
+        "to": "d5bef54ebdfb1a0692f9fee284164c2fa4f91dd9"
+      }
+    },
+    "commit:f228f569a576990d2944332c6e11d82687b7bc52": {
+      "files": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "kind": "added",
+          "origPath": null,
+          "path": "header.css"
+        }
+      ],
+      "range": {
+        "from": "af4cdbdf80b9a6d45240ba96f420a0b0b9bdb008",
+        "to": "f228f569a576990d2944332c6e11d82687b7bc52"
+      }
+    }
   }
 }

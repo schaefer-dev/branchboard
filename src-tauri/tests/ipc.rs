@@ -339,6 +339,134 @@ fn reads_and_changes_the_working_tree() {
     assert_eq!(harness.ok("refresh_summaries", json!({})), Value::Null);
 }
 
+#[test]
+fn commits_and_undoes_commits() {
+    let harness = Harness::new();
+    let repo = harness.repo("api");
+    // Commits made through IPC use the repository's own settings.
+    git(
+        &repo,
+        &["config", "--local", "user.name", "Branchboard Tests"],
+    );
+    git(
+        &repo,
+        &[
+            "config",
+            "--local",
+            "user.email",
+            "tests@branchboard.invalid",
+        ],
+    );
+    git(&repo, &["config", "--local", "commit.gpgsign", "false"]);
+    let repo_id = harness.add(&repo);
+    assert_eq!(
+        harness.ok("get_head_commit", json!({ "repoId": repo_id })),
+        Value::Null
+    );
+
+    let empty = harness
+        .invoke(
+            "commit",
+            json!({ "repoId": repo_id, "message": "  ", "amend": false }),
+        )
+        .unwrap_err();
+    assert_eq!(empty["kind"], "invalidInput");
+
+    write(&repo, "a.txt", "a\n");
+    harness.ok(
+        "stage_paths",
+        json!({ "repoId": repo_id, "paths": ["a.txt"] }),
+    );
+    let first = harness.ok(
+        "commit",
+        json!({ "repoId": repo_id, "message": "Add a", "amend": false }),
+    );
+    assert_eq!(first["status"]["staged"], json!([]));
+    assert_eq!(first["head"]["subject"], "Add a");
+    assert_eq!(first["head"]["hasParent"], false);
+    assert_eq!(first["status"]["headOid"], first["head"]["oid"]);
+
+    // Nothing to undo before the first commit.
+    let refused = harness
+        .invoke("undo_last_commit", json!({ "repoId": repo_id }))
+        .unwrap_err();
+    assert_eq!(refused["kind"], "invalidInput");
+
+    write(&repo, "b.txt", "b\n");
+    harness.ok(
+        "stage_paths",
+        json!({ "repoId": repo_id, "paths": ["b.txt"] }),
+    );
+    let second = harness.ok(
+        "commit",
+        json!({ "repoId": repo_id, "message": "Add b\n\nDetails.", "amend": false }),
+    );
+    assert_eq!(second["head"]["message"], "Add b\n\nDetails.");
+    let head = harness.ok("get_head_commit", json!({ "repoId": repo_id }));
+    assert_eq!(head["oid"], second["head"]["oid"]);
+    assert_eq!(head["pushed"], false);
+
+    let amended = harness.ok(
+        "commit",
+        json!({ "repoId": repo_id, "message": "Add b and more", "amend": true }),
+    );
+    assert_eq!(amended["head"]["subject"], "Add b and more");
+
+    let undone = harness.ok("undo_last_commit", json!({ "repoId": repo_id }));
+    assert_eq!(undone["message"], "Add b and more");
+    assert_eq!(undone["head"]["oid"], first["head"]["oid"]);
+    assert_eq!(
+        paths(&undone["status"]["staged"]),
+        vec![("b.txt".into(), "added".into())]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn reports_failing_commit_hooks() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let harness = Harness::new();
+    let repo = harness.repo("api");
+    git(
+        &repo,
+        &["config", "--local", "user.name", "Branchboard Tests"],
+    );
+    git(
+        &repo,
+        &[
+            "config",
+            "--local",
+            "user.email",
+            "tests@branchboard.invalid",
+        ],
+    );
+    let hook = repo.join(".git/hooks/pre-commit");
+    std::fs::write(&hook, "#!/bin/sh\necho 'lint: 2 problems'\nexit 1\n").unwrap();
+    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    write(&repo, "a.txt", "a\n");
+    let repo_id = harness.add(&repo);
+    harness.ok(
+        "stage_paths",
+        json!({ "repoId": repo_id, "paths": ["a.txt"] }),
+    );
+
+    let error = harness
+        .invoke(
+            "commit",
+            json!({ "repoId": repo_id, "message": "Add a", "amend": false }),
+        )
+        .unwrap_err();
+    assert_eq!(error["kind"], "gitFailed");
+    assert_eq!(error["message"], "Commit failed.");
+    assert!(
+        error["detail"]
+            .as_str()
+            .unwrap()
+            .contains("lint: 2 problems")
+    );
+}
+
 /// A repository with one change of every kind: staged and unstaged edits,
 /// a rename, a deletion, untracked text, binary and very large files.
 fn fixture_repo(harness: &Harness) -> PathBuf {
@@ -495,6 +623,25 @@ fn commit_at(repo: &Path, date: &str, file: &str, contents: &str) {
     );
 }
 
+const RATE_LIMIT_V1: &str = "export const LIMIT = 10;
+
+export function allow(hits: number): boolean {
+  return hits < LIMIT;
+}
+";
+
+const RATE_LIMIT_V2: &str = "/** Requests per user and minute. */
+export const LIMIT = 60;
+
+export function allow(hits: number): boolean {
+  return hits < LIMIT;
+}
+
+export function headers(hits: number): Record<string, string> {
+  return { \"RateLimit-Remaining\": String(Math.max(0, LIMIT - hits)) };
+}
+";
+
 /// A repository with a bare `origin` and branches in every relation to
 /// `origin/development` and to their upstreams.
 fn branch_repo(harness: &Harness) -> PathBuf {
@@ -558,7 +705,12 @@ fn branch_repo(harness: &Harness) -> PathBuf {
             "development",
         ],
     );
+    // Reviewing the branch shows more than one file and a real diff.
+    write(&repo, "src/rate-limit.ts", RATE_LIMIT_V1);
+    git(&repo, &["add", "src/rate-limit.ts"]);
     commit_at(&repo, "2026-01-06T10:00:00Z", "login.txt", "1\n");
+    write(&repo, "src/rate-limit.ts", RATE_LIMIT_V2);
+    git(&repo, &["add", "src/rate-limit.ts"]);
     commit_at(&repo, "2026-01-07T10:00:00Z", "login.txt", "2\n");
     git(
         &repo,
@@ -659,6 +811,90 @@ fn lists_switches_and_fetches_branches() {
     assert_eq!(settings["settings"]["fetchIntervalMinutes"], 0);
 }
 
+#[test]
+fn reviews_branches_and_commits() {
+    let harness = Harness::new();
+    let repo = branch_repo(&harness);
+    let repo_id = harness.add(&repo);
+
+    let branch = harness.ok(
+        "get_review_files",
+        json!({ "repoId": repo_id, "target": { "kind": "branch", "name": "fix/header-overflow" } }),
+    );
+    // Only what the branch adds, not what the mainline gained since.
+    assert_eq!(
+        paths(&branch["files"]),
+        vec![("header.css".into(), "added".into())]
+    );
+    assert_eq!(branch["files"][0]["additions"], 1);
+
+    let commits = harness.ok(
+        "get_branch_commits",
+        json!({ "repoId": repo_id, "branch": "feature/login-rate-limit" }),
+    );
+    let oid = &commits["ahead"]["commits"][0]["oid"];
+    let commit = harness.ok(
+        "get_review_files",
+        json!({ "repoId": repo_id, "target": { "kind": "commit", "oid": oid } }),
+    );
+    assert_eq!(commit["range"]["to"], *oid);
+    assert_eq!(
+        paths(&commit["files"]),
+        vec![("login.txt".into(), "modified".into())]
+    );
+
+    let diff = harness.ok(
+        "get_review_diff",
+        json!({ "repoId": repo_id, "request": {
+            "range": commit["range"], "path": "login.txt", "origPath": null, "full": false
+        }}),
+    );
+    assert_eq!(diff["hunks"][0]["lines"][0]["text"], "2");
+    assert_eq!(diff["hunks"][0]["lines"][1]["text"], "3");
+
+    let refused = harness
+        .invoke(
+            "get_review_diff",
+            json!({ "repoId": repo_id, "request": {
+                "range": { "from": "--output=x", "to": oid }, "path": "login.txt",
+                "origPath": null, "full": false
+            }}),
+        )
+        .unwrap_err();
+    assert_eq!(refused["kind"], "invalidInput");
+}
+
+/// The review of `target`, and the diff of each of its files keyed by
+/// `<from>..<to>:<path>`.
+fn record_review(
+    harness: &Harness,
+    repo_id: &str,
+    target: &Value,
+    diffs: &mut serde_json::Map<String, Value>,
+) -> Value {
+    let review = harness.ok(
+        "get_review_files",
+        json!({ "repoId": repo_id, "target": target }),
+    );
+    let range = &review["range"];
+    for file in review["files"].as_array().unwrap() {
+        let key = format!(
+            "{}..{}:{}",
+            range["from"].as_str().unwrap(),
+            range["to"].as_str().unwrap(),
+            file["path"].as_str().unwrap()
+        );
+        let diff = harness.ok(
+            "get_review_diff",
+            json!({ "repoId": repo_id, "request": {
+                "range": range, "path": file["path"], "origPath": file["origPath"], "full": false
+            }}),
+        );
+        diffs.insert(key, diff);
+    }
+    review
+}
+
 /// The branch list of [`branch_repo`] and the commits of each branch;
 /// `lastFetched` is cleared because it depends on when the test ran.
 fn record_branch_fixture() -> Value {
@@ -668,17 +904,31 @@ fn record_branch_fixture() -> Value {
     let mut list = harness.ok("get_branches", json!({ "repoId": repo_id }));
     list["lastFetched"] = Value::Null;
     let mut commits = serde_json::Map::new();
+    let mut reviews = serde_json::Map::new();
+    let mut review_diffs = serde_json::Map::new();
     for branch in list["branches"].as_array().unwrap() {
         let name = branch["name"].as_str().unwrap();
-        commits.insert(
-            name.to_owned(),
-            harness.ok(
-                "get_branch_commits",
-                json!({ "repoId": repo_id, "branch": name }),
-            ),
+        let branch_commits = harness.ok(
+            "get_branch_commits",
+            json!({ "repoId": repo_id, "branch": name }),
         );
+        let target = json!({ "kind": "branch", "name": name });
+        let review = record_review(&harness, &repo_id, &target, &mut review_diffs);
+        reviews.insert(format!("branch:{name}"), review);
+        for side in ["ahead", "behind"] {
+            let Some(listed) = branch_commits[side]["commits"].as_array() else {
+                continue;
+            };
+            for commit in listed {
+                let oid = commit["oid"].as_str().unwrap();
+                let target = json!({ "kind": "commit", "oid": oid });
+                let review = record_review(&harness, &repo_id, &target, &mut review_diffs);
+                reviews.insert(format!("commit:{oid}"), review);
+            }
+        }
+        commits.insert(name.to_owned(), branch_commits);
     }
-    json!({ "list": list, "commits": commits })
+    json!({ "list": list, "commits": commits, "reviews": reviews, "reviewDiffs": review_diffs })
 }
 
 #[test]

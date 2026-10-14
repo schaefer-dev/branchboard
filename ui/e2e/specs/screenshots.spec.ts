@@ -23,15 +23,56 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "changes", scheme);
     });
 
+    test("commit message", async ({ page }, info) => {
+      await openApp(page);
+      await page
+        .getByRole("textbox", { name: "Commit summary" })
+        .fill("Add rate limit headers to the login handler");
+      await page
+        .getByRole("textbox", { name: "Commit description" })
+        .fill("Limits are per user and reset every minute.\nThe headers follow the IETF draft.");
+      await capture(page, info.project.name, "commit", scheme);
+    });
+
+    test("failed commit", async ({ page }, info) => {
+      await openApp(page);
+      await page.evaluate(() => {
+        window.__fake.failNext(
+          "commit",
+          "eslint...................................................Failed\n" +
+            "src/handlers/login.ts\n  4:10  error  'verify' is defined but never used",
+        );
+      });
+      await page.getByRole("textbox", { name: "Commit summary" }).fill("Add rate limit headers");
+      await page.getByRole("button", { name: "Commit 2 files" }).click();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await capture(page, info.project.name, "commit-failed", scheme);
+    });
+
     test("branches", async ({ page }, info) => {
       await openApp(page);
       await page
         .getByRole("listbox", { name: "Branches" })
         .locator('[data-branch="feature/login-rate-limit"]')
         .click();
-      await expect(page.getByRole("region", { name: "Branch commits" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Branch review" })).toBeVisible();
       await expect(page.getByText("Fetched 3 min ago")).toBeVisible();
       await capture(page, info.project.name, "branches", scheme);
+    });
+
+    test("branch review", async ({ page }, info) => {
+      await openApp(page);
+      await page
+        .getByRole("listbox", { name: "Branches" })
+        .locator('[data-branch="feature/login-rate-limit"]')
+        .click();
+      const review = page.getByRole("region", { name: "Branch review" });
+      await review
+        .getByRole("listbox", { name: "Files in this review" })
+        .getByRole("option", { name: /rate-limit\.ts/ })
+        .click();
+      await expect(review.getByText("export const LIMIT = 60;")).toBeVisible();
+      await capture(page, info.project.name, "review", scheme);
     });
 
     test("quick switcher", async ({ page }, info) => {

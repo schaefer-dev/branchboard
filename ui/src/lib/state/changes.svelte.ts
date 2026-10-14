@@ -138,6 +138,11 @@ export class ChangesStore {
     return this.unstage(this.status?.staged.map((change) => change.path) ?? []);
   }
 
+  /** Shows the status a write command elsewhere (e.g. a commit) returned. */
+  receive(repoId: RepoId, status: StatusSnapshot): void {
+    if (repoId === this.repoId) this.apply(status);
+  }
+
   /** The selection, or the cursor item if nothing is selected. */
   actionItems(): ChangeItem[] {
     if (this.selectedItems.length > 0) return this.selectedItems;

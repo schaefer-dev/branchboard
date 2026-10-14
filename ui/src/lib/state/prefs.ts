@@ -19,3 +19,19 @@ export function writePref(key: string, value: string): void {
     // Not persisted; the in-memory value still applies.
   }
 }
+
+export function readText(key: string): string | null {
+  try {
+    return localStorage.getItem(PREFIX + key);
+  } catch {
+    return null;
+  }
+}
+
+export function removePref(key: string): void {
+  try {
+    localStorage.removeItem(PREFIX + key);
+  } catch {
+    // Nothing stored that could be removed.
+  }
+}

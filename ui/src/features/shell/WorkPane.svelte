@@ -1,6 +1,7 @@
 <script lang="ts">
   import { branches } from "../../lib/state/branches.svelte";
   import { changes } from "../../lib/state/changes.svelte";
+  import { commit } from "../../lib/state/commit.svelte";
   import { view, type WorkList } from "../../lib/state/view.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
@@ -9,6 +10,7 @@
   import { AUTO_BRANCH_ROWS, BRANCH_ROW_HEIGHT } from "../branches/branch-layout";
   import BranchesView from "../branches/BranchesView.svelte";
   import ChangesView from "../changes/ChangesView.svelte";
+  import CommitForm from "../changes/CommitForm.svelte";
   import { locateRepo, removeRepo } from "../repos/repo-actions";
 
   /** The changes keep at least this much height when the branch list is resized. */
@@ -20,6 +22,9 @@
 
   let listHeight = $state(0);
   let changesHeight = $state(0);
+  let commitHeight = $state(0);
+  /** The changed files keep their minimum height above the commit form. */
+  const minChangesHeight = $derived(MIN_CHANGES_HEIGHT + commitHeight);
   const hasList = $derived(branches.list !== null && branches.error === null);
   const listHeightWanted = $derived(
     view.branchHeight ??
@@ -27,13 +32,14 @@
   );
   /** The list and the changes share this space; the measured sum stays put while resizing. */
   const maxListHeight = $derived(
-    Math.max(BRANCH_ROW_HEIGHT, listHeight + changesHeight - MIN_CHANGES_HEIGHT),
+    Math.max(BRANCH_ROW_HEIGHT, listHeight + changesHeight - minChangesHeight),
   );
 
   $effect(() => {
     const shown = repo && !missing ? repo.id : null;
     void changes.show(shown);
     void branches.show(shown);
+    void commit.show(shown);
   });
 
   function follow(list: WorkList) {
@@ -89,12 +95,19 @@
       class="section changes-section"
       role="group"
       aria-label="Changes"
-      style:min-height="{MIN_CHANGES_HEIGHT}px"
+      style:min-height="{minChangesHeight}px"
       bind:clientHeight={changesHeight}
       onfocusin={follow("changes")}
       onpointerdown={follow("changes")}
     >
-      <ChangesView />
+      <div class="changes-list">
+        <ChangesView />
+      </div>
+      {#if changes.status}
+        <div class="commit-slot" bind:clientHeight={commitHeight}>
+          <CommitForm />
+        </div>
+      {/if}
     </div>
   {/if}
 </section>
@@ -121,6 +134,19 @@
 
   .changes-section {
     flex: 1 1 0;
+  }
+
+  .changes-list {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .commit-slot {
+    display: flex;
+    flex: none;
+    flex-direction: column;
   }
 
   .missing {

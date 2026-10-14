@@ -41,6 +41,8 @@ pub struct FileChange {
 #[ts(export)]
 pub struct StatusSnapshot {
     pub head: Head,
+    /// The commit `HEAD` points to; `None` on a branch without commits.
+    pub head_oid: Option<String>,
     pub staged: Vec<FileChange>,
     pub unstaged: Vec<FileChange>,
 }
@@ -124,6 +126,7 @@ pub fn parse_status(raw: &[u8]) -> Result<StatusSnapshot, GitError> {
     };
     Ok(StatusSnapshot {
         head: Head::from_status_headers(&oid, &head),
+        head_oid: (oid != "(initial)").then_some(oid),
         staged,
         unstaged,
     })
@@ -253,6 +256,14 @@ mod tests {
             status.unstaged,
             vec![change("src/main rs.rs", None, ChangeKind::Conflicted)]
         );
+    }
+
+    #[test]
+    fn reports_the_head_commit() {
+        let status = parse(&HEADERS);
+        assert_eq!(status.head_oid.as_deref(), Some("0123456789abcdef"));
+        let unborn = parse(&["# branch.oid (initial)", "# branch.head main"]);
+        assert_eq!(unborn.head_oid, None);
     }
 
     #[test]

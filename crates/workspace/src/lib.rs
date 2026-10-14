@@ -15,7 +15,8 @@ use std::sync::{Arc, OnceLock, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use git_core::{
-    BranchList, ChangeKind, DiffRequest, FileDiff, Git, GitError, Head, StatusSnapshot,
+    BranchList, ChangeKind, DiffRequest, DiffSources, FileDiff, Git, GitError, Head, HeadCommit,
+    ReviewDiffRequest, ReviewFiles, ReviewTarget, StatusSnapshot,
 };
 use highlight::Highlighter;
 use tokio::sync::{Mutex, Semaphore};
@@ -28,8 +29,8 @@ pub use registry::{
     RepoEntry, RepoId, Settings,
 };
 pub use snapshot::{
-    BranchCommits, FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate,
-    WorkspaceSnapshot,
+    BranchCommits, CommitResult, FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState,
+    SummaryUpdate, UndoCommitResult, WorkspaceSnapshot,
 };
 
 use crate::monitor::Monitor;
@@ -178,15 +179,56 @@ impl Workspace {
         request: &DiffRequest,
     ) -> Result<FileDiff, WorkspaceError> {
         let path = self.repo_path(id).await?;
-        let mut diff = git.diff(&path, request).await?;
-        if diff.binary || diff.too_large || !Highlighter::supports(&request.path) {
+        let diff = git.diff(&path, request).await?;
+        if !needs_highlighting(&diff, &request.path) {
             return Ok(diff);
         }
         let sources = git.diff_sources(&path, request).await?;
+        self.highlight(&request.path, diff, sources).await
+    }
+
+    /// The commits a review compares and the files that differ between them.
+    pub async fn review_files(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        target: &ReviewTarget,
+    ) -> Result<ReviewFiles, WorkspaceError> {
+        let (path, mainline) = self.repo_path_and_mainline(git, id).await?;
+        let range = git.review_range(&path, target, &mainline).await?;
+        let files = git.review_files(&path, &range).await?;
+        Ok(ReviewFiles { range, files })
+    }
+
+    pub async fn review_diff(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        request: &ReviewDiffRequest,
+    ) -> Result<FileDiff, WorkspaceError> {
+        // The range comes back from the frontend; accept object ids only.
+        if !is_object_id(&request.range.from) || !is_object_id(&request.range.to) {
+            return Err(WorkspaceError::InvalidRevision);
+        }
+        let path = self.repo_path(id).await?;
+        let diff = git.review_diff(&path, request).await?;
+        if !needs_highlighting(&diff, &request.path) {
+            return Ok(diff);
+        }
+        let sources = git.review_sources(&path, request).await?;
+        self.highlight(&request.path, diff, sources).await
+    }
+
+    async fn highlight(
+        &self,
+        file: &str,
+        mut diff: FileDiff,
+        sources: DiffSources,
+    ) -> Result<FileDiff, WorkspaceError> {
         let highlighter = Arc::clone(&self.highlighter);
-        let file = request.path.clone();
+        let file = file.to_owned();
         // Highlighting is CPU-bound; keep it off the async workers.
-        diff = tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || {
             highlighter.get_or_init(Highlighter::new).highlight_diff(
                 &file,
                 &mut diff,
@@ -196,8 +238,7 @@ impl Workspace {
             diff
         })
         .await
-        .map_err(|error| WorkspaceError::Highlight(error.to_string()))?;
-        Ok(diff)
+        .map_err(|error| WorkspaceError::Highlight(error.to_string()))
     }
 
     pub async fn stage(
@@ -255,6 +296,67 @@ impl Workspace {
         git.restore_worktree(&root, &restore).await?;
         move_to_trash(untracked).await?;
         Ok(self.monitor.refresh(git, id, &root).await?)
+    }
+
+    /// Commits the staged changes, or replaces the last commit with `amend`.
+    pub async fn commit(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        message: &str,
+        amend: bool,
+    ) -> Result<CommitResult, WorkspaceError> {
+        if message.trim().is_empty() {
+            return Err(WorkspaceError::EmptyMessage);
+        }
+        let path = self.repo_path(id).await?;
+        let _writes = self.monitor.writes.lock().await;
+        git.commit(&path, message, amend).await?;
+        let head = git
+            .head_commit(&path)
+            .await?
+            .ok_or_else(|| GitError::Parse("HEAD is unborn after a commit".into()))?;
+        let status = self.monitor.refresh(git, id, &path).await?;
+        Ok(CommitResult { status, head })
+    }
+
+    pub async fn head_commit(
+        &self,
+        git: &Git,
+        id: &RepoId,
+    ) -> Result<Option<HeadCommit>, WorkspaceError> {
+        let path = self.repo_path(id).await?;
+        Ok(git.head_commit(&path).await?)
+    }
+
+    /// Takes back the last commit and keeps its changes staged. Refused for
+    /// the first commit and for commits that are already on a remote.
+    pub async fn undo_last_commit(
+        &self,
+        git: &Git,
+        id: &RepoId,
+    ) -> Result<UndoCommitResult, WorkspaceError> {
+        let path = self.repo_path(id).await?;
+        let _writes = self.monitor.writes.lock().await;
+        let undone = git
+            .head_commit(&path)
+            .await?
+            .filter(|head| head.has_parent)
+            .ok_or(WorkspaceError::NothingToUndo)?;
+        if undone.pushed {
+            return Err(WorkspaceError::CommitPublished);
+        }
+        git.undo_last_commit(&path).await?;
+        let head = git
+            .head_commit(&path)
+            .await?
+            .ok_or_else(|| GitError::Parse("HEAD is unborn after undoing a commit".into()))?;
+        let status = self.monitor.refresh(git, id, &path).await?;
+        Ok(UndoCommitResult {
+            status,
+            head,
+            message: undone.message,
+        })
     }
 
     pub async fn branches(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
@@ -434,6 +536,15 @@ async fn summarize(git: &Git, path: &Path) -> SummaryState {
 }
 
 /// Joins a repository-relative path with `/` separators onto `root`.
+fn needs_highlighting(diff: &FileDiff, path: &str) -> bool {
+    !diff.binary && !diff.too_large && Highlighter::supports(path)
+}
+
+/// A full SHA-1 or SHA-256 object id.
+fn is_object_id(value: &str) -> bool {
+    matches!(value.len(), 40 | 64) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn join_relative(root: &Path, relative: &str) -> PathBuf {
     relative
         .split('/')

@@ -153,7 +153,11 @@
         </div>
       {:else}
         <FileRow
-          item={row.item}
+          id="change-{row.key}"
+          key={row.key}
+          path={row.item.change.path}
+          origPath={row.item.change.origPath}
+          kind={row.item.change.kind}
           selected={changes.selected.has(row.key)}
           cursor={changes.cursor === row.key}
         />

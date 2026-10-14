@@ -7,7 +7,9 @@ import type {
   BranchCommits,
   BranchList,
   FileDiff,
+  HeadCommit,
   RepoView,
+  ReviewFiles,
   StatusSnapshot,
   SummaryState,
   WorkspaceSnapshot,
@@ -25,6 +27,10 @@ const recorded = changesFixture as unknown as {
 const recordedBranches = branchesFixture as unknown as {
   list: BranchList;
   commits: Record<string, BranchCommits>;
+  /** Keyed by `branch:<name>` or `commit:<oid>`. */
+  reviews: Record<string, ReviewFiles>;
+  /** Keyed by `<from>..<to>:<path>`. */
+  reviewDiffs: Record<string, FileDiff>;
 };
 
 /** Three minutes ago, so screenshots show a stable "Fetched 3 min ago". */
@@ -72,6 +78,11 @@ export interface Scenario {
   branches: Record<string, BranchList>;
   /** Keyed by repo id, then branch name. */
   commits: Record<string, Record<string, BranchCommits>>;
+  /** Reviews per repo id, keyed like the recorded fixture. */
+  reviews: Record<string, Record<string, ReviewFiles>>;
+  reviewDiffs: Record<string, Record<string, FileDiff>>;
+  /** Commits of the current branch per repo id, oldest first; the last is HEAD. */
+  history: Record<string, HeadCommit[]>;
   /** What herdr reports; unavailable unless a scenario runs herdr. */
   agents: AgentsSnapshot;
   /** herdr is installed, so the embedded terminal is available. */
@@ -101,11 +112,44 @@ function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView
   };
 }
 
+/** A stable, hex-looking object id derived from `seed`. */
+export function fakeOid(seed: string): string {
+  const hex = Array.from(seed, (c) => c.charCodeAt(0).toString(16)).join("");
+  return hex.padEnd(40, "0").slice(0, 40);
+}
+
+export function headCommit(
+  oid: string,
+  message: string,
+  extra: Partial<HeadCommit> = {},
+): HeadCommit {
+  return {
+    oid,
+    shortOid: oid.slice(0, 7),
+    subject: message.split("\n")[0] ?? "",
+    message,
+    hasParent: true,
+    pushed: true,
+    ...extra,
+  };
+}
+
 const clean = (name: string): StatusSnapshot => ({
   head: { kind: "branch", name },
+  headOid: fakeOid(name),
   staged: [],
   unstaged: [],
 });
+
+/** The current branch of `api`, oldest first; only its newest commit is not pushed. */
+function apiHistory(): HeadCommit[] {
+  const ahead = recordedBranches.commits["feature/login-rate-limit"]?.ahead.commits ?? [];
+  return [...ahead]
+    .reverse()
+    .map((summary, index, all) =>
+      headCommit(summary.oid, summary.subject, { pushed: index < all.length - 1 }),
+    );
+}
 
 function ready(status: StatusSnapshot): SummaryState {
   return {
@@ -116,13 +160,20 @@ function ready(status: StatusSnapshot): SummaryState {
 
 function defaultScenario(): Scenario {
   const api = structuredClone(recorded.status);
+  const history = apiHistory();
   api.head = { kind: "branch", name: "feature/login-rate-limit" };
+  api.headOid = history.at(-1)?.oid ?? null;
   const statuses: Record<string, StatusSnapshot> = {
     api,
     web: clean("development"),
-    infra: { head: { kind: "detached", oid: "b5b537a" }, staged: [], unstaged: [] },
+    infra: {
+      head: { kind: "detached", oid: "b5b537a" },
+      headOid: "b5b537a".padEnd(40, "0"),
+      staged: [],
+      unstaged: [],
+    },
     dotfiles: clean("main"),
-    blog: { head: { kind: "unborn", name: "main" }, staged: [], unstaged: [] },
+    blog: { head: { kind: "unborn", name: "main" }, headOid: null, staged: [], unstaged: [] },
   };
   const summaries: Record<string, SummaryState> = Object.fromEntries(
     Object.entries(statuses).map(([id, status]) => [id, ready(status)]),
@@ -160,6 +211,9 @@ function defaultScenario(): Scenario {
       dotfiles: singleBranch("main"),
     },
     commits: { api: structuredClone(recordedBranches.commits) },
+    reviews: { api: structuredClone(recordedBranches.reviews) },
+    reviewDiffs: { api: structuredClone(recordedBranches.reviewDiffs) },
+    history: { api: history },
     agents: noHerdr(),
     terminal: false,
     herdrWorkspaces: [],
@@ -212,6 +266,9 @@ function emptyScenario(): Scenario {
     summaries: {},
     branches: {},
     commits: {},
+    reviews: {},
+    reviewDiffs: {},
+    history: {},
     agents: noHerdr(),
     terminal: false,
     herdrWorkspaces: [],
