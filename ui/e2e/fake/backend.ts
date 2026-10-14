@@ -375,11 +375,11 @@ export class FakeBackend {
   }
 
   /** Like the backend: the chosen mainline, else origin/development where it
-   * exists, else origin/main. */
+   * exists, else origin/main where it exists, else origin/master. */
   private mainlineOf(repo: RepoView): string {
     if (repo.mainline) return repo.mainline;
     const hasDevelopment = this.state.branches[repo.id]?.branches.some((b) => b.mainline);
-    return hasDevelopment ? "origin/development" : "origin/main";
+    return hasDevelopment ? "origin/development" : "origin/master";
   }
 
   private branchList(repoId: string): BranchList {

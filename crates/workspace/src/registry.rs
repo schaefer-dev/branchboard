@@ -44,7 +44,7 @@ pub struct RepoEntry {
     #[serde(default)]
     pub favorite: bool,
     /// Ref the branches are compared with, if the user chose one; otherwise
-    /// [`DEFAULT_MAINLINE`] or [`FALLBACK_MAINLINE`].
+    /// [`DEFAULT_MAINLINE`], [`FALLBACK_MAINLINE`] or [`FINAL_FALLBACK_MAINLINE`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mainline: Option<String>,
 }
@@ -53,6 +53,8 @@ pub struct RepoEntry {
 pub const DEFAULT_MAINLINE: &str = "origin/development";
 /// …or with this one if the repository has no [`DEFAULT_MAINLINE`].
 pub const FALLBACK_MAINLINE: &str = "origin/main";
+/// …or with this one if neither of the above exists.
+pub const FINAL_FALLBACK_MAINLINE: &str = "origin/master";
 
 /// Background fetch interval unless the user changes it.
 pub const DEFAULT_FETCH_INTERVAL_MINUTES: u32 = 10;
@@ -210,8 +212,8 @@ impl Registry {
 
     /// Sets the ref branches are compared with; `None` or a blank value
     /// restores the automatic choice ([`DEFAULT_MAINLINE`], else
-    /// [`FALLBACK_MAINLINE`]). Choosing the default explicitly keeps it even
-    /// where it does not exist.
+    /// [`FALLBACK_MAINLINE`], else [`FINAL_FALLBACK_MAINLINE`]). Choosing the
+    /// default explicitly keeps it even where it does not exist.
     pub fn set_mainline(
         &mut self,
         id: &RepoId,

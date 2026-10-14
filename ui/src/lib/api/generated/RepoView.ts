@@ -9,8 +9,8 @@ export type RepoView = { id: RepoId,
 name: string, customName: string | null, path: string, groupId: GroupId | null, favorite: boolean, 
 /**
  * The ref the user chose to compare branches with; `null` means
- * automatic (`origin/development`, else `origin/main`). The branch list
- * reports the ref actually used.
+ * automatic (`origin/development`, else `origin/main`, else `origin/master`).
+ * The branch list reports the ref actually used.
  */
 mainline: string | null, 
 /**

@@ -31,8 +31,8 @@ pub struct RepoView {
     pub group_id: Option<GroupId>,
     pub favorite: bool,
     /// The ref the user chose to compare branches with; `null` means
-    /// automatic (`origin/development`, else `origin/main`). The branch list
-    /// reports the ref actually used.
+    /// automatic (`origin/development`, else `origin/main`, else `origin/master`).
+    /// The branch list reports the ref actually used.
     pub mainline: Option<String>,
     /// The folder was moved or deleted, or is no longer a repository.
     pub missing: bool,

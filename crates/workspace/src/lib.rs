@@ -24,8 +24,8 @@ use tokio::task::JoinSet;
 pub use editor::Editor;
 pub use error::WorkspaceError;
 pub use registry::{
-    Added, DEFAULT_MAINLINE, FALLBACK_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId,
-    Settings,
+    Added, DEFAULT_MAINLINE, FALLBACK_MAINLINE, FINAL_FALLBACK_MAINLINE, Group, GroupId, Registry,
+    RepoEntry, RepoId, Settings,
 };
 pub use snapshot::{
     BranchCommits, FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate,
@@ -388,7 +388,7 @@ impl Workspace {
 
     /// The repository's path and the ref its branches are compared with:
     /// the one the user chose, else [`DEFAULT_MAINLINE`] if it exists, else
-    /// [`FALLBACK_MAINLINE`].
+    /// [`FALLBACK_MAINLINE`] if it exists, else [`FINAL_FALLBACK_MAINLINE`].
     async fn repo_path_and_mainline(
         &self,
         git: &Git,
@@ -402,7 +402,8 @@ impl Workspace {
         let mainline = match chosen {
             Some(mainline) => mainline,
             None if git.ref_exists(&path, DEFAULT_MAINLINE).await? => DEFAULT_MAINLINE.to_owned(),
-            None => FALLBACK_MAINLINE.to_owned(),
+            None if git.ref_exists(&path, FALLBACK_MAINLINE).await? => FALLBACK_MAINLINE.to_owned(),
+            None => FINAL_FALLBACK_MAINLINE.to_owned(),
         };
         Ok((path, mainline))
     }

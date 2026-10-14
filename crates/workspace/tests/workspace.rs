@@ -236,9 +236,9 @@ async fn fetches_and_lists_branches_with_the_configured_mainline() {
     let (added, _) = workspace.add_repo(&git, &repo).await.unwrap();
     let id = added.id().clone();
 
-    // Without origin/development the default falls back to origin/main.
+    // Without origin/development or origin/main the default falls back to origin/master.
     let list = workspace.branches(&git, &id).await.unwrap();
-    assert_eq!(list.mainline, "origin/main");
+    assert_eq!(list.mainline, "origin/master");
     assert!(!list.mainline_exists);
 
     workspace
@@ -264,7 +264,7 @@ async fn fetches_and_lists_branches_with_the_configured_mainline() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn compares_with_origin_main_without_origin_development() {
+async fn selects_the_first_available_automatic_mainline() {
     let git = git().await;
     let root = tempfile::tempdir().unwrap();
     let repo = init_repo(&git, &root.path().join("api")).await;
@@ -281,20 +281,40 @@ async fn compares_with_origin_main_without_origin_development() {
         assert!(status.success());
     };
 
-    // Neither exists: origin/main is reported missing.
+    // None exist: origin/master is reported missing.
     let list = workspace.branches(&git, &id).await.unwrap();
-    assert_eq!(list.mainline, "origin/main");
+    assert_eq!(list.mainline, "origin/master");
     assert!(!list.mainline_exists);
 
+    set_ref("refs/remotes/origin/master");
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/master");
+    assert!(list.mainline_exists);
+    let commits = workspace.branch_commits(&git, &id, "main").await.unwrap();
+    assert_eq!(commits.mainline, "origin/master");
+
+    // origin/main takes priority over origin/master.
     set_ref("refs/remotes/origin/main");
     let list = workspace.branches(&git, &id).await.unwrap();
     assert_eq!(list.mainline, "origin/main");
     assert!(list.mainline_exists);
+    let commits = workspace.branch_commits(&git, &id, "main").await.unwrap();
+    assert_eq!(commits.mainline, "origin/main");
 
     // origin/development wins as soon as it exists.
     set_ref("refs/remotes/origin/development");
     let list = workspace.branches(&git, &id).await.unwrap();
     assert_eq!(list.mainline, "origin/development");
+    assert!(list.mainline_exists);
     let commits = workspace.branch_commits(&git, &id, "main").await.unwrap();
     assert_eq!(commits.mainline, "origin/development");
+
+    // An explicit choice takes priority, even when it does not exist.
+    workspace
+        .update(|registry| registry.set_mainline(&id, Some("origin/custom")))
+        .await
+        .unwrap();
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/custom");
+    assert!(!list.mainline_exists);
 }

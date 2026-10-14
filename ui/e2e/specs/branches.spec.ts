@@ -118,16 +118,20 @@ test.describe("branches", () => {
     await expect(page.getByText("Last fetch failed")).toBeVisible();
   });
 
-  test("compares with origin/main where origin/development does not exist", async ({ page }) => {
+  test("compares with origin/master where origin/development and origin/main do not exist", async ({
+    page,
+  }) => {
     await sidebar(page).locator('[data-repo-id="web"]').click();
     await expect(page.getByRole("button", { name: /Compared with/ })).toHaveText(
-      /Compared with\s*origin\/main/,
+      /Compared with\s*origin\/master/,
     );
     await page.getByRole("button", { name: /Compared with/ }).click();
     const dialog = page.getByRole("dialog", { name: "Compare branches with" });
     await expect(dialog.getByRole("textbox")).toHaveValue("");
     await expect(
-      dialog.getByText(/Leave empty for origin\/development, or origin\/main/),
+      dialog.getByText(
+        /Leave empty for origin\/development, then origin\/main, then origin\/master/,
+      ),
     ).toBeVisible();
   });
 

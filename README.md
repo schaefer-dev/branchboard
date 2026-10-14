@@ -88,7 +88,8 @@ When building with an explicit `--target`, artifacts are under
 4. With herdr running, press `⌘ Shift T` to show the terminal next to your changes. A
    repository without a herdr workspace offers **Create workspace**.
 
-The default comparison branch is `origin/development`. Background fetching defaults to every
+The default comparison branch is `origin/development`, falling back to `origin/main`, then
+`origin/master` if the preceding branches do not exist. Background fetching defaults to every
 10 minutes for the active repository; change the interval or turn it off in the branch options.
 
 ### Keyboard shortcuts

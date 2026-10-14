@@ -9,7 +9,7 @@ import { workspace } from "../../lib/state/workspace.svelte";
 import { prompts } from "../../lib/ui/prompt.svelte";
 
 /** What an empty choice means; the backend decides per repository. */
-const AUTOMATIC_MAINLINE = "origin/development, or origin/main where that doesn't exist";
+const AUTOMATIC_MAINLINE = "origin/development, then origin/main, then origin/master";
 const FETCH_INTERVALS = [5, 10, 30, 60] as const;
 
 export async function chooseMainline(repo: RepoView): Promise<void> {
