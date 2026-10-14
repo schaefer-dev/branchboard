@@ -58,6 +58,37 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "agents", scheme);
     });
 
+    test("terminal", async ({ page }, info) => {
+      await openApp(page, "agents");
+      await page
+        .getByRole("group", { name: "Right pane" })
+        .getByRole("button", { name: "Terminal" })
+        .click();
+      // Something like herdr's tab bar and a Claude Code session.
+      await page.evaluate(() => {
+        window.__fake.terminalOutput(
+          "\x1b[2J\x1b[H\x1b[7m 1 agents \x1b[0m  2 shell   +\r\n\r\n" +
+            "\x1b[1m> \x1b[0mAdd rate limit headers to the login handler\r\n\r\n" +
+            "\x1b[32m●\x1b[0m Update(src/handlers/login.ts)\r\n" +
+            '  \x1b[32m+ res.setHeader("RateLimit-Remaining", left);\x1b[0m\r\n\r\n' +
+            "\x1b[33m Do you want to make this edit? \x1b[0m\r\n \x1b[1m❯ 1. Yes\x1b[0m\r\n   2. No\r\n",
+        );
+      });
+      await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible();
+      await capture(page, info.project.name, "terminal", scheme);
+    });
+
+    test("terminal without a workspace", async ({ page }, info) => {
+      await openApp(page, "agents");
+      await page
+        .getByRole("group", { name: "Right pane" })
+        .getByRole("button", { name: "Terminal" })
+        .click();
+      await sidebar(page).locator('[data-repo-id="blog"]').click();
+      await expect(page.getByText("blog has no herdr workspace yet.")).toBeVisible();
+      await capture(page, info.project.name, "terminal-new-workspace", scheme);
+    });
+
     test("empty workspace", async ({ page }, info) => {
       await openApp(page, "empty");
       await expect(page.getByText("No repositories yet")).toBeVisible();

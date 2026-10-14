@@ -20,21 +20,29 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
-        Self::with_options(None, None)
+        Self::with_options(AppOptions::default())
     }
 
     fn with_editor(editor: Option<PathBuf>) -> Self {
-        Self::with_options(editor, None)
+        Self::with_options(AppOptions {
+            editor,
+            ..AppOptions::default()
+        })
     }
 
-    /// `herdr_socket` defaults to a socket nobody listens on, so tests never
-    /// reach the developer's own herdr session.
-    fn with_options(editor: Option<PathBuf>, herdr_socket: Option<PathBuf>) -> Self {
+    /// The workspace file always lives in a temp dir, and `herdr_socket`
+    /// defaults to a socket nobody listens on, so tests never reach the
+    /// developer's own repository list or herdr session.
+    fn with_options(options: AppOptions) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let options = AppOptions {
             workspace_file: Some(dir.path().join("workspace.json")),
-            editor,
-            herdr_socket: Some(herdr_socket.unwrap_or_else(|| dir.path().join("herdr.sock"))),
+            herdr_socket: Some(
+                options
+                    .herdr_socket
+                    .unwrap_or_else(|| dir.path().join("herdr.sock")),
+            ),
+            ..options
         };
         // The app's real context, so the real capabilities (ACL) apply.
         let mut app = build(mock_builder(), options)
@@ -807,7 +815,7 @@ fn reports_agents_unavailable_without_herdr() {
     let repo_id = harness.add(&harness.repo("api"));
     assert_eq!(
         harness.ok("get_agents", json!({})),
-        json!({ "available": false, "repos": [], "agents": [] })
+        json!({ "available": false, "repos": [], "agents": [], "focusedRepoId": null })
     );
     let error = harness
         .invoke("open_in_herdr", json!({ "repoId": repo_id }))
@@ -815,8 +823,17 @@ fn reports_agents_unavailable_without_herdr() {
     assert_eq!(error["kind"], "herdrUnavailable");
 }
 
-#[test]
-fn reports_agents_and_opens_workspaces_in_herdr() {
+/// Two repositories and a fake herdr with agents in one of them and in a
+/// space that is no repository.
+struct HerdrSetup {
+    fake: FakeHerdr,
+    harness: Harness,
+    api_id: String,
+    docs_id: String,
+    _repos: TempDir,
+}
+
+fn herdr_setup() -> HerdrSetup {
     // The repositories must exist before the snapshot can name their paths.
     let repos = tempfile::tempdir().unwrap();
     let api = repos.path().join("api");
@@ -850,15 +867,36 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
         ],
     }));
 
-    let harness = Harness::with_options(None, Some(fake.socket.clone()));
+    let harness = Harness::with_options(AppOptions {
+        herdr_socket: Some(fake.socket.clone()),
+        ..AppOptions::default()
+    });
     let api_id = harness.add(&api);
     let docs_id = harness.add(&docs);
 
+    HerdrSetup {
+        fake,
+        harness,
+        api_id,
+        docs_id,
+        _repos: repos,
+    }
+}
+
+#[test]
+fn reports_agents_from_herdr() {
+    let HerdrSetup {
+        fake,
+        harness,
+        api_id,
+        ..
+    } = herdr_setup();
     let agents = harness.ok("get_agents", json!({}));
     assert_eq!(
         agents,
         json!({
             "available": true,
+            "focusedRepoId": null,
             "repos": [{
                 "repoId": api_id,
                 "state": "blocked",
@@ -883,13 +921,24 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
             ],
         })
     );
+    // Listing connected and subscribed to herdr's events.
+    assert_eq!(fake.requests("events.subscribe").len(), 1);
+}
 
+#[test]
+fn opens_workspaces_and_agents_in_herdr() {
+    let HerdrSetup {
+        fake,
+        harness,
+        api_id,
+        docs_id,
+        ..
+    } = herdr_setup();
     assert_eq!(
         harness.ok("focus_agent", json!({ "paneId": "w2:p1" })),
         Value::Null
     );
     assert_eq!(fake.requests("agent.focus"), [json!({ "target": "w2:p1" })]);
-    assert_eq!(fake.requests("events.subscribe").len(), 1);
 
     assert_eq!(
         harness.ok("open_in_herdr", json!({ "repoId": api_id })),
@@ -899,6 +948,17 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
         fake.requests("workspace.focus"),
         [json!({ "workspace_id": "w1" })]
     );
+
+    // Focusing never creates a workspace.
+    assert_eq!(
+        harness.ok("focus_repo_in_herdr", json!({ "repoId": docs_id })),
+        json!(false)
+    );
+    assert_eq!(
+        harness.ok("focus_repo_in_herdr", json!({ "repoId": api_id })),
+        json!(true)
+    );
+    assert_eq!(fake.requests("workspace.create"), Vec::<Value>::new());
 
     harness.ok("open_in_herdr", json!({ "repoId": docs_id }));
     // The path as registered (Windows canonical paths differ in form).
@@ -914,4 +974,86 @@ fn reports_agents_and_opens_workspaces_in_herdr() {
         fake.requests("workspace.create"),
         [json!({ "cwd": docs_path, "label": "docs", "focus": true })]
     );
+}
+
+/// Waits until `path` exists and holds text for which `done` is true.
+fn wait_for_file(path: &Path, done: impl Fn(&str) -> bool) -> String {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        if done(&text) {
+            return text;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "{} never became ready: {text:?}",
+            path.display()
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn runs_the_embedded_terminal() {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Stands in for herdr: records its environment, terminal size and input.
+    let scripts = tempfile::tempdir().unwrap();
+    let out = scripts.path();
+    let program = out.join("herdr");
+    std::fs::write(
+        &program,
+        format!(
+            "#!/bin/sh\nenv > '{0}/env.txt'\nwhile read line; do\n  \
+             [ \"$line\" = size ] && stty size > '{0}/size.txt'\n  \
+             echo \"$line\" >> '{0}/input.txt'\ndone\n",
+            out.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let harness = Harness::with_options(AppOptions {
+        terminal_program: Some(program),
+        ..AppOptions::default()
+    });
+    assert_eq!(
+        harness.ok("terminal_info", json!({})),
+        json!({ "available": true })
+    );
+    harness.ok(
+        "terminal_open",
+        json!({ "cols": 80, "rows": 24, "output": "__CHANNEL__:1" }),
+    );
+
+    let env = wait_for_file(&out.join("env.txt"), |text| text.contains("TERM="));
+    let config = harness.dir.path().join("herdr-embedded.toml");
+    assert!(
+        env.contains(&format!("HERDR_CONFIG_PATH={}", config.display())),
+        "{env}"
+    );
+    assert!(env.contains(&format!(
+        "HERDR_SOCKET_PATH={}",
+        harness.dir.path().join("herdr.sock").display()
+    )));
+    assert!(env.contains("TERM=xterm-256color"));
+    assert!(!env.contains("HERDR_PANE_ID="), "{env}");
+    let written = std::fs::read_to_string(&config).unwrap();
+    assert!(
+        written.contains("sidebar_collapsed_mode = \"hidden\""),
+        "{written}"
+    );
+
+    harness.ok("terminal_write", json!({ "data": "hello\r" }));
+    wait_for_file(&out.join("input.txt"), |text| text.contains("hello"));
+    harness.ok("terminal_resize", json!({ "cols": 100, "rows": 30 }));
+    harness.ok("terminal_write", json!({ "data": "size\r" }));
+    wait_for_file(&out.join("size.txt"), |text| text.trim() == "30 100");
+
+    harness.ok("terminal_close", json!({}));
+    let error = harness
+        .invoke("terminal_write", json!({ "data": "late\r" }))
+        .unwrap_err();
+    assert_eq!(error["kind"], "terminalFailed");
 }

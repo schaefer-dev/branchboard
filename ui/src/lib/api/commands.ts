@@ -2,6 +2,8 @@
 // `#[tauri::command]` in `src-tauri/src/commands.rs`; argument and result
 // types come from the generated ts-rs bindings.
 
+import type { Channel } from "@tauri-apps/api/core";
+
 import { call } from "./client";
 import type { AddRepoResult } from "./generated/AddRepoResult";
 import type { AgentsSnapshot } from "./generated/AgentsSnapshot";
@@ -14,6 +16,8 @@ import type { GitInfo } from "./generated/GitInfo";
 import type { GroupId } from "./generated/GroupId";
 import type { RepoId } from "./generated/RepoId";
 import type { StatusSnapshot } from "./generated/StatusSnapshot";
+import type { TerminalExit } from "./generated/TerminalExit";
+import type { TerminalInfo } from "./generated/TerminalInfo";
 import type { WorkspaceSnapshot } from "./generated/WorkspaceSnapshot";
 
 export const api = {
@@ -67,4 +71,14 @@ export const api = {
   getAgents: () => call<AgentsSnapshot>("get_agents"),
   openInHerdr: (repoId: RepoId) => call<null>("open_in_herdr", { repoId }),
   focusAgent: (paneId: string) => call<null>("focus_agent", { paneId }),
+  /** Shows the repository's herdr workspace if it has one; never creates one. */
+  focusRepoInHerdr: (repoId: RepoId) => call<boolean>("focus_repo_in_herdr", { repoId }),
+
+  terminalInfo: () => call<TerminalInfo>("terminal_info"),
+  /** Output arrives on `output` as `ArrayBuffer`s, then one `TerminalExit`. */
+  terminalOpen: (cols: number, rows: number, output: Channel<ArrayBuffer | TerminalExit>) =>
+    call<null>("terminal_open", { cols, rows, output }),
+  terminalWrite: (data: string) => call<null>("terminal_write", { data }),
+  terminalResize: (cols: number, rows: number) => call<null>("terminal_resize", { cols, rows }),
+  terminalClose: () => call<null>("terminal_close"),
 } as const;

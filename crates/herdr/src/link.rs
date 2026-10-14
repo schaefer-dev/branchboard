@@ -29,6 +29,7 @@ const SUBSCRIBE_ATTEMPTS: usize = 3;
 const SESSION_EVENTS: &[&str] = &[
     "workspace.created",
     "workspace.closed",
+    "workspace.focused",
     "worktree.created",
     "worktree.opened",
     "worktree.removed",
@@ -78,6 +79,11 @@ impl HerdrLink {
             live: AtomicBool::new(false),
             connecting: tokio::sync::Mutex::new(()),
         }))
+    }
+
+    /// The session this link talks to; `None` if herdr cannot be located.
+    pub fn endpoint(&self) -> Option<&Endpoint> {
+        self.0.endpoint.as_ref()
     }
 
     /// The last known session; `None` while herdr is unavailable.
@@ -130,6 +136,30 @@ impl HerdrLink {
         self.0.sink.session_changed(self.session());
     }
 
+    /// Shows the workspace of repository `key` in herdr, if one works in it.
+    /// Returns the workspace shown.
+    pub async fn focus_repo<K: Clone + Eq + Hash>(
+        &self,
+        repos: &RepoMatcher<K>,
+        key: &K,
+    ) -> Result<Option<String>, HerdrError> {
+        let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
+        let session = snapshot(endpoint).await?;
+        let Some(id) = session.workspace_for(repos, key) else {
+            return Ok(None);
+        };
+        let workspace_id = id.to_owned();
+        if session.focused_workspace_id.as_deref() != Some(&workspace_id) {
+            connection::request::<Value>(
+                endpoint,
+                "workspace.focus",
+                json!({ "workspace_id": workspace_id }),
+            )
+            .await?;
+        }
+        Ok(Some(workspace_id))
+    }
+
     /// Shows the workspace of repository `key` in herdr, or creates one in
     /// the repository named `label` if none works in it yet.
     pub async fn open<K: Clone + Eq + Hash>(
@@ -139,15 +169,7 @@ impl HerdrLink {
         label: &str,
     ) -> Result<Opened, HerdrError> {
         let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
-        let session = snapshot(endpoint).await?;
-        if let Some(id) = session.workspace_for(repos, key) {
-            let workspace_id = id.to_owned();
-            connection::request::<Value>(
-                endpoint,
-                "workspace.focus",
-                json!({ "workspace_id": workspace_id }),
-            )
-            .await?;
+        if let Some(workspace_id) = self.focus_repo(repos, key).await? {
             return Ok(Opened::Focused { workspace_id });
         }
         let cwd = repos

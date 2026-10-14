@@ -11,9 +11,10 @@ use std::path::PathBuf;
 
 use git_core::{BranchList, DiffRequest, FileDiff, StatusSnapshot};
 use tauri::State;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use workspace::{Added, BranchCommits, GroupId, RepoId, WorkspaceSnapshot};
 
-use crate::dto::{AddRepoResult, AgentsSnapshot, AppInfo, GitInfo};
+use crate::dto::{AddRepoResult, AgentsSnapshot, AppInfo, GitInfo, TerminalInfo};
 use crate::error::AppError;
 use crate::state::{AppState, repo_matcher};
 
@@ -348,8 +349,68 @@ pub async fn open_in_herdr(state: State<'_, AppState>, repo_id: RepoId) -> Comma
     Ok(())
 }
 
+/// Shows the repository's herdr workspace if it has one; never creates one.
+/// Returns whether there was one.
+#[tauri::command]
+pub async fn focus_repo_in_herdr(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+) -> CommandResult<bool> {
+    let workspace = state.workspace.snapshot().await;
+    if !workspace.repos.iter().any(|repo| repo.id == repo_id) {
+        return Err(workspace::WorkspaceError::RepoNotFound.into());
+    }
+    let focused = state
+        .herdr
+        .focus_repo(&repo_matcher(&workspace), &repo_id)
+        .await?;
+    Ok(focused.is_some())
+}
+
 /// Shows an agent in herdr: its workspace, tab and pane.
 #[tauri::command]
 pub async fn focus_agent(state: State<'_, AppState>, pane_id: String) -> CommandResult<()> {
     Ok(state.herdr.focus_agent(&pane_id).await?)
+}
+
+/// Whether the embedded terminal can run herdr.
+#[tauri::command]
+pub async fn terminal_info(state: State<'_, AppState>) -> CommandResult<TerminalInfo> {
+    Ok(TerminalInfo {
+        available: state.herdr_binary().await.is_some(),
+    })
+}
+
+/// Starts the embedded herdr client, replacing one that still runs. Output
+/// arrives on `output` as raw bytes, followed by `{ "exit": code }`.
+#[tauri::command]
+pub async fn terminal_open(
+    state: State<'_, AppState>,
+    cols: u16,
+    rows: u16,
+    output: Channel<InvokeResponseBody>,
+) -> CommandResult<()> {
+    let command = state.terminal_command().await?;
+    state
+        .terminal
+        .open(&command, pty::Size { cols, rows }, output)?;
+    state.spawn_herdr_connect_after_start();
+    Ok(())
+}
+
+/// Input from the user, as typed or pasted.
+#[tauri::command]
+pub fn terminal_write(state: State<'_, AppState>, data: String) -> CommandResult<()> {
+    state.terminal.write(data.as_bytes())
+}
+
+#[tauri::command]
+pub fn terminal_resize(state: State<'_, AppState>, cols: u16, rows: u16) -> CommandResult<()> {
+    state.terminal.resize(pty::Size { cols, rows })
+}
+
+/// Ends the embedded client; herdr's server and its agents keep running.
+#[tauri::command]
+pub fn terminal_close(state: State<'_, AppState>) {
+    state.terminal.close();
 }

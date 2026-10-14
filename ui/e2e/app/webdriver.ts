@@ -89,6 +89,18 @@ export class Session {
     await request(`${this.base}/session/${this.id}/element/${element}/click`, "POST", {});
   }
 
+  /** Types into whatever has focus, key by key (W3C key actions). */
+  async keys(text: string): Promise<void> {
+    const characters = Array.from(new Intl.Segmenter().segment(text), (part) => part.segment);
+    const actions = characters.flatMap((value) => [
+      { type: "keyDown", value },
+      { type: "keyUp", value },
+    ]);
+    await request(`${this.base}/session/${this.id}/actions`, "POST", {
+      actions: [{ type: "key", id: "keyboard", actions }],
+    });
+  }
+
   async type(css: string, text: string): Promise<void> {
     const element = await this.find(css);
     await request(`${this.base}/session/${this.id}/element/${element}/value`, "POST", { text });

@@ -70,12 +70,18 @@ export class FakeBackend {
   private pickedFolders: string[] = [];
   private failures = new Map<string, string>();
   private nextId = 1;
+  /** The fake herdr client: what the app typed, its size and its output channel. */
+  private terminal: {
+    output: ChannelLike | null;
+    input: string;
+    size: { cols: number; rows: number } | null;
+  } = { output: null, input: "", size: null };
 
   constructor(scenario: Scenario) {
     this.state = scenario;
   }
 
-  handle(cmd: string, args: Args): unknown {
+  async handle(cmd: string, args: Args): Promise<unknown> {
     this.log.push({ cmd, args: structuredClone(stripChannels(args)) });
     const workspace = this.state.workspace;
     switch (cmd) {
@@ -196,12 +202,44 @@ export class FakeBackend {
           fail("herdrFailed", "herdr reported an error.", "not_found: agent not found");
         }
         return null;
-      case "open_in_herdr":
-        this.repo(args.repoId);
+      case "terminal_info":
+        return { available: this.state.terminal };
+      case "terminal_open": {
+        if (!this.state.terminal) fail("herdrUnavailable", "herdr was not found.");
+        this.terminal = {
+          output: args.output as ChannelLike,
+          input: "",
+          size: { cols: Number(args.cols), rows: Number(args.rows) },
+        };
+        // Like herdr: draw something once attached.
+        this.sendTerminal("herdr (fake)\r\n$ ");
+        return null;
+      }
+      case "terminal_write":
+        if (!this.terminal.output) fail("terminalFailed", "The terminal has closed.");
+        this.terminal.input += String(args.data);
+        return null;
+      case "terminal_resize":
+        this.terminal.size = { cols: Number(args.cols), rows: Number(args.rows) };
+        return null;
+      case "terminal_close":
+        this.terminal.output = null;
+        return null;
+      case "open_in_herdr": {
+        const repo = this.repo(args.repoId);
         if (!this.state.agents.available) {
           fail("herdrUnavailable", "herdr is not running. Start herdr and try again.");
         }
+        if (!this.state.herdrWorkspaces.includes(repo.id)) this.state.herdrWorkspaces.push(repo.id);
+        await this.herdrFocus(repo.id);
         return null;
+      }
+      case "focus_repo_in_herdr": {
+        const repo = this.repo(args.repoId);
+        if (!this.state.herdrWorkspaces.includes(repo.id)) return false;
+        await this.herdrFocus(repo.id);
+        return true;
+      }
       case "plugin:dialog|open":
         return this.pickedFolders.length > 0 ? this.pickedFolders : null;
       case "plugin:dialog|message": {
@@ -243,6 +281,17 @@ export class FakeBackend {
         await emit("tauri://drag-enter", { paths, position });
         await emit("tauri://drag-drop", { paths, position });
       },
+      terminalInput: () => this.terminal.input,
+      terminalSize: () => this.terminal.size,
+      terminalOutput: (text) => {
+        this.sendTerminal(text);
+      },
+      terminalExit: (code) => {
+        const output = this.terminal.output;
+        this.terminal.output = null;
+        output?.onmessage({ exit: code });
+      },
+      herdrFocus: (repoId) => this.herdrFocus(repoId),
       setAgents: async (agents: AgentsSnapshot) => {
         this.state.agents = agents;
         await emit("repo-agents", agents);
@@ -255,6 +304,19 @@ export class FakeBackend {
         await emit("repo-status", { repoId, status });
       },
     };
+  }
+
+  /** herdr shows the workspace of `repoId`, as all its clients follow. */
+  private async herdrFocus(repoId: string): Promise<void> {
+    if (this.state.agents.focusedRepoId === repoId) return;
+    this.state.agents.focusedRepoId = repoId;
+    await emit("repo-agents", structuredClone(this.state.agents));
+  }
+
+  private sendTerminal(text: string): void {
+    const bytes = new TextEncoder().encode(text);
+    // The real channel delivers raw output as an `ArrayBuffer`.
+    this.terminal.output?.onmessage(bytes.buffer.slice(0, bytes.byteLength));
   }
 
   private snapshot(): WorkspaceSnapshot {

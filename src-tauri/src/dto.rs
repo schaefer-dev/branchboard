@@ -42,6 +42,8 @@ pub struct AgentsSnapshot {
     pub repos: Vec<RepoAgents>,
     /// Every agent in every herdr workspace, most urgent first.
     pub agents: Vec<AgentRow>,
+    /// The repository of the workspace herdr shows, if it is in the list.
+    pub focused_repo_id: Option<RepoId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -63,4 +65,23 @@ pub struct RepoAgents {
     pub state: AgentState,
     /// Most urgent first.
     pub agents: Vec<AgentSummary>,
+}
+
+/// Whether the embedded terminal can run herdr.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TerminalInfo {
+    /// The herdr binary was found.
+    pub available: bool,
+}
+
+/// The last message on a terminal's output channel; everything before it is
+/// raw output.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TerminalExit {
+    /// The client's exit code; `null` if it was killed.
+    pub exit: Option<u32>,
 }

@@ -79,12 +79,31 @@ test.describe("coding agents in herdr", () => {
     await expect.poll(() => menu(page)).not.toContain("Open in herdr");
   });
 
-  test("opens a repository's workspace from the context menu", async ({ page }) => {
+  test("shows a repository's workspace in the terminal from the context menu", async ({ page }) => {
     await openApp(page, "agents");
+    await sidebar(page).locator('[data-repo-id="web"]').click({ button: "right" });
+    await expect.poll(() => menu(page)).toContain("Show in terminal");
+    await clickMenu(page, "Show in terminal");
+    await expectCall(page, "open_in_herdr", { repoId: "web" });
+    await expect(page.getByRole("region", { name: "Terminal" })).toBeVisible();
+    await expect(sidebar(page).locator('[data-repo-id="web"]')).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
+  test("opens the workspace in herdr's own terminal when herdr is not installed here", async ({
+    page,
+  }) => {
+    // herdr runs (e.g. started from another terminal) but Branchboard cannot
+    // find its binary, so there is no embedded terminal.
+    await openApp(page);
+    await page.evaluate(() => window.__fake.setAgents({ available: true, repos: [], agents: [] }));
     await sidebar(page).locator('[data-repo-id="web"]').click({ button: "right" });
     await expect.poll(() => menu(page)).toContain("Open in herdr");
     await clickMenu(page, "Open in herdr");
     await expectCall(page, "open_in_herdr", { repoId: "web" });
+    await expect(page.getByRole("region", { name: "Terminal" })).toHaveCount(0);
   });
 
   test("opens the active repository with a shortcut", async ({ page }) => {

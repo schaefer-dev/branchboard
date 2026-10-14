@@ -8,8 +8,19 @@ import type { RecordedCall } from "../fake/control";
  */
 export const test = base.extend({
   page: async ({ page }, use) => {
+    // The Chromium project stands in for WebView2 on Windows with a Windows
+    // user agent; make `navigator.platform` agree (xterm.js reads it, e.g.
+    // to recognise AltGr).
+    await page.addInitScript(() => {
+      if (navigator.userAgent.includes("Windows")) {
+        Object.defineProperty(navigator, "platform", { get: () => "Win32" });
+      }
+    });
     const problems: string[] = [];
     page.on("console", (message) => {
+      // Headless Chromium's software GL driver reports its own performance
+      // notes for WebGL canvases (the terminal); they say nothing about the app.
+      if (message.text().includes("GL Driver Message")) return;
       if (message.type() === "warning" || message.type() === "error") {
         problems.push(`${message.type()}: ${message.text()}`);
       }

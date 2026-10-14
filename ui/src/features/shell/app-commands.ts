@@ -4,6 +4,7 @@
 import { commands } from "../../lib/commands";
 import { agents } from "../../lib/state/agents.svelte";
 import { branches } from "../../lib/state/branches.svelte";
+import { terminal } from "../../lib/state/terminal.svelte";
 import { changes } from "../../lib/state/changes.svelte";
 import { view } from "../../lib/state/view.svelte";
 import { workspace } from "../../lib/state/workspace.svelte";
@@ -77,14 +78,13 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       run: openCurrentInEditor,
     }),
     commands.register({
-      id: "herdr.open",
-      title: "Open in herdr",
-      shortcut: { key: "t", mod: true, shift: true },
-      enabled: () => agents.available && usableRepo() !== null,
-      run: () => {
-        const repo = usableRepo();
-        if (repo) void openRepoInHerdr(repo);
+      id: "terminal.show",
+      get title() {
+        return terminal.available ? "Show terminal" : "Open in herdr";
       },
+      shortcut: { key: "t", mod: true, shift: true },
+      enabled: () => terminal.available || (agents.available && usableRepo() !== null),
+      run: () => openRepoInHerdr(usableRepo()),
     }),
     commands.register({
       id: "changes.stageAll",

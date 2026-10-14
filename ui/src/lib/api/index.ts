@@ -38,6 +38,8 @@ export type { RepoView } from "./generated/RepoView";
 export type { Settings } from "./generated/Settings";
 export type { StatusSnapshot } from "./generated/StatusSnapshot";
 export type { StatusUpdate } from "./generated/StatusUpdate";
+export type { TerminalExit } from "./generated/TerminalExit";
+export type { TerminalInfo } from "./generated/TerminalInfo";
 export type { SummaryState } from "./generated/SummaryState";
 export type { SummaryUpdate } from "./generated/SummaryUpdate";
 export type { Token } from "./generated/Token";

@@ -1,5 +1,7 @@
 // The API the fake backend exposes to Playwright as `window.__fake`.
 
+import type { Terminal } from "@xterm/xterm";
+
 import type { AgentsSnapshot } from "../../src/lib/api";
 
 export interface RecordedCall {
@@ -22,6 +24,16 @@ export interface FakeControl {
   drop(paths: string[]): Promise<void>;
   /** Makes the next branch switch or fetch fail with git's `stderr`. */
   failNext(command: "switch_branch" | "fetch_repo", stderr: string): void;
+  /** Everything typed into the embedded terminal since it opened. */
+  terminalInput(): string;
+  /** The size the terminal was opened with or last resized to. */
+  terminalSize(): { cols: number; rows: number } | null;
+  /** Writes `text` as if the herdr client drew it. */
+  terminalOutput(text: string): void;
+  /** Ends the herdr client, as when the user detaches. */
+  terminalExit(code: number | null): void;
+  /** herdr switches to the workspace of `repoId`, e.g. navigated in the terminal. */
+  herdrFocus(repoId: string): Promise<void>;
   /** Replaces what herdr reports, as when an agent changes state. */
   setAgents(agents: AgentsSnapshot): Promise<void>;
   /** Simulates an external change to the working tree of a repository. */
@@ -31,5 +43,7 @@ export interface FakeControl {
 declare global {
   interface Window {
     __fake: FakeControl;
+    /** The embedded terminal, set by the e2e build so specs can read its screen. */
+    __terminal?: Terminal;
   }
 }

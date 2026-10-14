@@ -9,15 +9,19 @@ publish.workspace = true
 
 [dependencies]
 interprocess.workspace = true
+pty.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+toml_edit.workspace = true
 tokio = { workspace = true, features = ["io-util", "sync", "rt", "time"] }
 tracing.workspace = true
 ts-rs.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 tempfile.workspace = true
+vt100.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 
 [lints]

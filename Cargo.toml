@@ -13,14 +13,17 @@ publish = false
 git-core = { path = "crates/git-core" }
 herdr = { path = "crates/herdr" }
 highlight = { path = "crates/highlight" }
+pty = { path = "crates/pty" }
 workspace = { path = "crates/workspace" }
 
 dunce = "1.0.5"
 interprocess = { version = "2.4.5", features = ["tokio"] }
 notify = "8.2.0"
+portable-pty = "0.9.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
+toml_edit = "0.25.17"
 tokio = { version = "1.53.3", default-features = false }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
@@ -41,6 +44,7 @@ tree-sitter-toml-ng = "0.7.0"
 tree-sitter-typescript = "0.23.2"
 tree-sitter-yaml = "0.7.2"
 uuid = { version = "1.28.0", features = ["v4"] }
+vt100 = "0.16.2"
 
 tauri = { version = "2.12.3", features = [] }
 tauri-build = { version = "2.7.2", features = [] }

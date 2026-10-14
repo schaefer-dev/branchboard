@@ -47,6 +47,9 @@ pub struct Session {
     pub version: String,
     #[serde(default)]
     pub protocol: u32,
+    /// The workspace herdr's clients show.
+    #[serde(default)]
+    pub focused_workspace_id: Option<String>,
     #[serde(default)]
     pub workspaces: Vec<Workspace>,
     #[serde(default)]

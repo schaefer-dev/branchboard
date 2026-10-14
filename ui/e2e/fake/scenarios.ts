@@ -74,9 +74,18 @@ export interface Scenario {
   commits: Record<string, Record<string, BranchCommits>>;
   /** What herdr reports; unavailable unless a scenario runs herdr. */
   agents: AgentsSnapshot;
+  /** herdr is installed, so the embedded terminal is available. */
+  terminal: boolean;
+  /** Repositories with a herdr workspace. */
+  herdrWorkspaces: string[];
 }
 
-const noHerdr = (): AgentsSnapshot => ({ available: false, repos: [], agents: [] });
+const noHerdr = (): AgentsSnapshot => ({
+  available: false,
+  repos: [],
+  agents: [],
+  focusedRepoId: null,
+});
 
 function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView {
   return {
@@ -152,6 +161,8 @@ function defaultScenario(): Scenario {
     },
     commits: { api: structuredClone(recordedBranches.commits) },
     agents: noHerdr(),
+    terminal: false,
+    herdrWorkspaces: [],
   };
 }
 
@@ -182,7 +193,9 @@ function agentsScenario(): Scenario {
   });
   return {
     ...defaultScenario(),
-    agents: { available: true, repos, agents: list },
+    agents: { available: true, repos, agents: list, focusedRepoId: "api" },
+    terminal: true,
+    herdrWorkspaces: ["api", "web", "infra", "dotfiles"],
   };
 }
 
@@ -200,6 +213,8 @@ function emptyScenario(): Scenario {
     branches: {},
     commits: {},
     agents: noHerdr(),
+    terminal: false,
+    herdrWorkspaces: [],
   };
 }
 

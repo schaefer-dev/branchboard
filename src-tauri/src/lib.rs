@@ -8,18 +8,19 @@ mod dto;
 mod error;
 mod events;
 mod state;
+mod terminal;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use herdr::{Endpoint, HerdrLink};
-use tauri::{Manager, Runtime, WindowEvent};
+use tauri::{Manager, RunEvent, Runtime, WindowEvent};
 use tracing_subscriber::EnvFilter;
 use workspace::Workspace;
 
 use crate::events::TauriEvents;
-use crate::state::AppState;
+use crate::state::{AppState, Paths};
 
 /// How often to check whether the repository on screen is due for a fetch.
 const BACKGROUND_FETCH_CHECK: Duration = Duration::from_secs(60);
@@ -34,6 +35,8 @@ pub struct AppOptions {
     /// Socket of the herdr session to use instead of the one herdr's own
     /// environment variables and config directory point at.
     pub herdr_socket: Option<PathBuf>,
+    /// Program to run in the embedded terminal instead of herdr.
+    pub terminal_program: Option<PathBuf>,
 }
 
 /// Starts the application and blocks until it exits.
@@ -49,10 +52,21 @@ pub fn run() {
         workspace_file: std::env::var_os("BRANCHBOARD_WORKSPACE_FILE").map(PathBuf::from),
         editor: std::env::var_os("BRANCHBOARD_EDITOR").map(PathBuf::from),
         herdr_socket: None,
+        // The Windows smoke test runs a shell in place of herdr.
+        terminal_program: std::env::var_os("BRANCHBOARD_TERMINAL_PROGRAM").map(PathBuf::from),
     };
     build(tauri::Builder::default(), options)
-        .run(tauri::generate_context!())
-        .expect("error while running Branchboard");
+        .build(tauri::generate_context!())
+        .expect("error while starting Branchboard")
+        .run(|app, event| {
+            // End the embedded herdr client with the app; the herdr server
+            // and its agents keep running.
+            if let RunEvent::Exit = event
+                && let Some(state) = app.try_state::<AppState>()
+            {
+                state.terminal.close();
+            }
+        });
 }
 
 /// Configures plugins, state, commands and event handlers. Generic over the
@@ -72,11 +86,17 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
                 Some(socket) => Some(Endpoint::new(socket)),
                 None => Endpoint::from_env(),
             };
+            let terminal_config =
+                terminal::config_file(file.parent().unwrap_or_else(|| std::path::Path::new(".")));
             let state = AppState::new(
                 version,
                 Workspace::open(file, events.clone()),
                 HerdrLink::new(herdr_endpoint, events),
-                options.editor.clone(),
+                Paths {
+                    editor: options.editor.clone(),
+                    terminal_config,
+                    terminal_program: options.terminal_program.clone(),
+                },
             );
             app.manage(state.clone());
 
@@ -148,6 +168,12 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::get_agents,
             commands::open_in_herdr,
             commands::focus_agent,
+            commands::focus_repo_in_herdr,
+            commands::terminal_info,
+            commands::terminal_open,
+            commands::terminal_write,
+            commands::terminal_resize,
+            commands::terminal_close,
         ])
 }
 

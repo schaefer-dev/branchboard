@@ -2,22 +2,23 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { onMount } from "svelte";
 
-  import CommitsPane from "./features/branches/CommitsPane.svelte";
-  import DiffPane from "./features/diff/DiffPane.svelte";
   import DropOverlay from "./features/repos/DropOverlay.svelte";
   import QuickSwitcher from "./features/repos/QuickSwitcher.svelte";
   import Sidebar from "./features/shell/Sidebar.svelte";
   import { registerAppCommands } from "./features/shell/app-commands";
   import CommandPalette from "./features/shell/CommandPalette.svelte";
+  import RightColumn from "./features/shell/RightColumn.svelte";
   import StatusBar from "./features/shell/StatusBar.svelte";
   import WorkPane from "./features/shell/WorkPane.svelte";
+  import { keyOwner } from "./features/terminal/key-policy";
   import { commands } from "./lib/commands";
+  import { isMac } from "./lib/platform/os";
   import { agents } from "./lib/state/agents.svelte";
   import { appInfo } from "./lib/state/app-info.svelte";
   import { branches } from "./lib/state/branches.svelte";
   import { changes } from "./lib/state/changes.svelte";
   import { notices } from "./lib/state/notices.svelte";
-  import { view } from "./lib/state/view.svelte";
+  import { terminal } from "./lib/state/terminal.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
   import Notices from "./lib/ui/Notices.svelte";
   import PromptDialog from "./lib/ui/PromptDialog.svelte";
@@ -28,11 +29,15 @@
 
   onMount(() => {
     void appInfo.load();
-    Promise.all([changes.init(), branches.init(), workspace.init(), agents.init()]).catch(
-      (error: unknown) => {
-        notices.error(error);
-      },
-    );
+    Promise.all([
+      changes.init(),
+      branches.init(),
+      workspace.init(),
+      agents.init(),
+      terminal.init(),
+    ]).catch((error: unknown) => {
+      notices.error(error);
+    });
 
     const unregister = registerAppCommands({
       openSwitcher: () => (switcherOpen = true),
@@ -58,6 +63,9 @@
   });
 
   function onKeydown(event: KeyboardEvent) {
+    // Keys typed into the terminal stay there unless they are the app's.
+    const inTerminal = event.target instanceof Element && event.target.closest(".xterm") !== null;
+    if (inTerminal && keyOwner(event, isMac) === "terminal") return;
     commands.handleKeydown(event);
   }
 
@@ -81,11 +89,7 @@
   <main class="panes">
     <Sidebar />
     <WorkPane />
-    {#if view.detail === "branches"}
-      <CommitsPane />
-    {:else}
-      <DiffPane />
-    {/if}
+    <RightColumn />
   </main>
   <StatusBar />
 </div>

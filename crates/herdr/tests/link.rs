@@ -313,6 +313,7 @@ async fn reconnects_after_the_server_went_away() {
 #[tokio::test]
 async fn open_focuses_the_repository_workspace() {
     let setup = setup();
+    setup.fake.snapshot.lock().unwrap()["focused_workspace_id"] = json!("w5");
     let opened = setup.link.open(&repos(), &"api", "api").await.unwrap();
     assert_eq!(
         opened,
@@ -350,4 +351,16 @@ async fn focuses_an_agent() {
         setup.fake.calls("agent.focus"),
         [json!({ "target": "w1:p2" })]
     );
+}
+
+#[tokio::test]
+async fn an_already_focused_workspace_is_left_alone() {
+    let setup = setup();
+    // The fixture's focused workspace is w1, api's.
+    let focused = setup.link.focus_repo(&repos(), &"api").await.unwrap();
+    assert_eq!(focused.as_deref(), Some("w1"));
+    let missing = setup.link.focus_repo(&repos(), &"docs").await.unwrap();
+    assert_eq!(missing, None);
+    assert_eq!(setup.fake.calls("workspace.focus"), Vec::<Value>::new());
+    assert_eq!(setup.fake.calls("workspace.create"), Vec::<Value>::new());
 }

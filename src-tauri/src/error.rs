@@ -1,5 +1,6 @@
 use git_core::GitError;
 use herdr::HerdrError;
+use pty::PtyError;
 use serde::Serialize;
 use ts_rs::TS;
 use workspace::WorkspaceError;
@@ -32,6 +33,8 @@ pub enum AppErrorKind {
     HerdrUnavailable,
     /// herdr is running but the request failed.
     HerdrFailed,
+    /// The embedded terminal could not be started or has closed.
+    TerminalFailed,
     Io,
     /// Unexpected failures, e.g. a rejected IPC call or a crashed task.
     Internal,
@@ -47,7 +50,16 @@ impl AppError {
         self
     }
 
-    fn new(kind: AppErrorKind, message: impl Into<String>, detail: Option<String>) -> Self {
+    /// A failed file operation of the app itself.
+    pub fn io(error: &std::io::Error) -> Self {
+        Self::new(
+            AppErrorKind::Io,
+            "Branchboard could not write its files.",
+            Some(error.to_string()),
+        )
+    }
+
+    pub fn new(kind: AppErrorKind, message: impl Into<String>, detail: Option<String>) -> Self {
         Self {
             kind,
             message: message.into(),
@@ -137,5 +149,16 @@ impl From<HerdrError> for AppError {
             _ => AppErrorKind::HerdrFailed,
         };
         Self::new(kind, error.to_string(), error.detail())
+    }
+}
+
+impl From<PtyError> for AppError {
+    fn from(error: PtyError) -> Self {
+        let detail = match &error {
+            PtyError::Spawn(detail) => Some(detail.clone()),
+            PtyError::Io(source) => Some(source.to_string()),
+            PtyError::Closed => None,
+        };
+        Self::new(AppErrorKind::TerminalFailed, error.to_string(), detail)
     }
 }

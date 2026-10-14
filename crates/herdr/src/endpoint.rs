@@ -61,7 +61,7 @@ impl Endpoint {
 }
 
 /// herdr's config directory, following herdr's own rules.
-fn config_dir(var: &impl Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+pub(crate) fn config_dir(var: &impl Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
     const APP: &str = "herdr";
     if let Some(dir) = var("XDG_CONFIG_HOME") {
         return Some(PathBuf::from(dir).join(APP));

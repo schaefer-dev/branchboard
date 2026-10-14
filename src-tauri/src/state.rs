@@ -4,14 +4,21 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use git_core::{DiscoveryOptions, Git};
-use herdr::{HerdrLink, RepoMatcher};
+use herdr::{EmbeddedClient, HerdrLink, RepoMatcher};
+use pty::PtyCommand;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
 
 use workspace::{Editor, RepoId, Workspace, WorkspaceError, WorkspaceSnapshot};
 
 use crate::dto::{AgentRow, AgentsSnapshot, RepoAgents};
-use crate::error::AppError;
+use crate::error::{AppError, AppErrorKind};
+use crate::terminal::Terminal;
+
+/// After starting the embedded client, how often and how long to wait for
+/// the herdr server it may have started.
+const HERDR_START_ATTEMPTS: u32 = 20;
+const HERDR_START_INTERVAL: Duration = Duration::from_millis(250);
 
 /// Window focus refreshes all summaries, but at most this often.
 const FOCUS_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
@@ -33,6 +40,18 @@ pub struct Inner {
     /// Background fetches only happen while the window has focus.
     focused: AtomicBool,
     editor_override: Option<PathBuf>,
+    pub terminal: Terminal,
+    /// Where the embedded client's herdr config is written.
+    terminal_config: PathBuf,
+    /// Program to run instead of herdr in the terminal (tests).
+    terminal_program: Option<PathBuf>,
+}
+
+/// Paths that differ between the real app and tests.
+pub struct Paths {
+    pub editor: Option<PathBuf>,
+    pub terminal_config: PathBuf,
+    pub terminal_program: Option<PathBuf>,
 }
 
 impl Deref for AppState {
@@ -44,12 +63,7 @@ impl Deref for AppState {
 }
 
 impl AppState {
-    pub fn new(
-        app_version: String,
-        workspace: Workspace,
-        herdr: HerdrLink,
-        editor_override: Option<PathBuf>,
-    ) -> Self {
+    pub fn new(app_version: String, workspace: Workspace, herdr: HerdrLink, paths: Paths) -> Self {
         Self(Arc::new(Inner {
             app_version,
             workspace,
@@ -58,7 +72,10 @@ impl AppState {
             git: OnceCell::new(),
             last_focus_refresh: Mutex::new(None),
             focused: AtomicBool::new(true),
-            editor_override,
+            editor_override: paths.editor,
+            terminal: Terminal::default(),
+            terminal_config: paths.terminal_config,
+            terminal_program: paths.terminal_program,
         }))
     }
 
@@ -82,6 +99,22 @@ impl AppState {
             if let Ok(git) = state.git().await {
                 let max_age = Duration::from_secs(u64::from(minutes) * 60);
                 state.workspace.fetch_if_stale(git, max_age).await;
+            }
+        });
+    }
+
+    /// Connects the herdr link once the embedded client is up: when the
+    /// client had to start the herdr server, its socket appears a moment
+    /// later. Gives up after a few seconds; window focus retries anyway.
+    pub fn spawn_herdr_connect_after_start(&self) {
+        let herdr = self.herdr.clone();
+        tauri::async_runtime::spawn(async move {
+            for _ in 0..HERDR_START_ATTEMPTS {
+                herdr.connect().await;
+                if herdr.session().is_some() {
+                    return;
+                }
+                tokio::time::sleep(HERDR_START_INTERVAL).await;
             }
         });
     }
@@ -149,6 +182,7 @@ impl Inner {
                 available: false,
                 repos: Vec::new(),
                 agents: Vec::new(),
+                focused_repo_id: None,
             };
         };
         let snapshot = self.workspace.snapshot().await;
@@ -175,7 +209,48 @@ impl Inner {
             available: true,
             repos,
             agents,
+            focused_repo_id: session.focused_repo(&matcher),
         }
+    }
+
+    /// The herdr binary for the embedded terminal: found on the same search
+    /// path as git, else where herdr's installers put it.
+    pub async fn herdr_binary(&self) -> Option<PathBuf> {
+        if let Some(program) = &self.terminal_program {
+            return Some(program.clone());
+        }
+        if let Ok(git) = self.git().await
+            && let Some(binary) = herdr::find_binary(git.runner().search_path())
+        {
+            return Some(binary);
+        }
+        herdr::find_binary(&std::env::var_os("PATH").unwrap_or_default())
+    }
+
+    /// The command that starts the embedded herdr client, attached to the
+    /// session the link talks to. Writes the client's config first.
+    pub async fn terminal_command(&self) -> Result<PtyCommand, AppError> {
+        let unavailable = || AppError::from(herdr::HerdrError::NotRunning);
+        let endpoint = self.herdr.endpoint().ok_or_else(unavailable)?.clone();
+        let binary = self.herdr_binary().await.ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::HerdrUnavailable,
+                "herdr was not found. Install herdr and restart Branchboard.",
+                None,
+            )
+        })?;
+        let user = herdr::user_config_path().and_then(|path| std::fs::read_to_string(path).ok());
+        let config = herdr::embedded_config(user.as_deref());
+        if let Some(dir) = self.terminal_config.parent() {
+            std::fs::create_dir_all(dir).map_err(|error| AppError::io(&error))?;
+        }
+        std::fs::write(&self.terminal_config, config).map_err(|error| AppError::io(&error))?;
+        let client = EmbeddedClient {
+            binary,
+            endpoint,
+            config: self.terminal_config.clone(),
+        };
+        Ok(client.command(std::env::var_os("LANG").as_deref()))
     }
 
     /// Whether a focus-triggered refresh is due; records it if so.

@@ -5,6 +5,7 @@
   import Icon from "../../lib/ui/Icon.svelte";
   import { openChangeInEditor } from "../editor/open-in-editor";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
+  import RightSwitch from "../shell/RightSwitch.svelte";
   import DiffView from "./DiffView.svelte";
 
   const item = $derived(changes.cursorItem);
@@ -40,6 +41,7 @@
         <Icon name="external" />
       </button>
     {/if}
+    <RightSwitch />
   </PaneHeader>
 
   <div class="body">

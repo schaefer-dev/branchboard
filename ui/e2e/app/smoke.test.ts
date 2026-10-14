@@ -5,6 +5,9 @@
 //   pnpm tauri build --debug --no-bundle
 //   pnpm smoke
 //
+// The embedded terminal runs the platform shell instead of herdr
+// (BRANCHBOARD_TERMINAL_PROGRAM), so the test needs no herdr installation.
+//
 // Environment: BRANCHBOARD_APP (app binary), TAURI_DRIVER (default
 // `tauri-driver`), NATIVE_DRIVER (path to msedgedriver, optional).
 
@@ -15,6 +18,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   writeFileSync,
@@ -36,6 +40,11 @@ const DRIVER_URL = "http://127.0.0.1:4444";
 const exe = process.platform === "win32" ? ".exe" : "";
 const app =
   process.env.BRANCHBOARD_APP ?? join(process.cwd(), "target", "debug", `branchboard${exe}`);
+/** Runs in the embedded terminal in place of herdr. */
+const shell =
+  process.platform === "win32"
+    ? (process.env.ComSpec ?? "C:\\Windows\\System32\\cmd.exe")
+    : "/bin/sh";
 
 let root: string | undefined;
 let repo: string;
@@ -113,7 +122,7 @@ before(async () => {
   driver = new Driver(
     process.env.TAURI_DRIVER ?? "tauri-driver",
     args,
-    { ...process.env, BRANCHBOARD_WORKSPACE_FILE: workspace },
+    { ...process.env, BRANCHBOARD_WORKSPACE_FILE: workspace, BRANCHBOARD_TERMINAL_PROGRAM: shell },
     log,
   );
   let phase = "driver readiness";
@@ -137,6 +146,7 @@ before(async () => {
       const childEnv = windows.prepare({
         ...process.env,
         BRANCHBOARD_WORKSPACE_FILE: workspace,
+        BRANCHBOARD_TERMINAL_PROGRAM: shell,
         TAURI_WEBVIEW_AUTOMATION: "true",
       });
       application = new OwnedProcess(app, [], childEnv, (message) => {
@@ -237,4 +247,29 @@ void test("picks up changes made outside the app", async () => {
     "the external change",
     `return document.querySelector('[data-key="unstaged:outside.txt"]') !== null;`,
   );
+});
+
+void test("runs a program in the embedded terminal", async () => {
+  assert.ok(session && root);
+  await session.click('[aria-label="Right pane"] button:last-child');
+  await session.waitFor(
+    "the terminal",
+    `const input = document.querySelector('.xterm-helper-textarea');
+     if (!input) return null;
+     input.focus();
+     return document.activeElement === input;`,
+  );
+  // The shell reports the config herdr would get, proving that the PTY
+  // (ConPTY on Windows) runs, gets the environment and receives keystrokes.
+  const marker = join(root, "terminal.txt");
+  const command =
+    process.platform === "win32"
+      ? `echo %HERDR_CONFIG_PATH%> "${marker}"`
+      : `echo "$HERDR_CONFIG_PATH" > '${marker}'`;
+  await session.keys(command + Keys.enter);
+  const deadline = Date.now() + 15_000;
+  while (!existsSync(marker) || !readFileSync(marker, "utf8").includes("herdr-embedded.toml")) {
+    assert.ok(Date.now() < deadline, "the terminal did not run the command");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
 });

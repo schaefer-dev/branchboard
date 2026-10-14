@@ -183,6 +183,40 @@ impl Session {
             .and_then(|directory| repos.locate(directory))
     }
 
+    /// The repository the focused workspace works in, if any: the one with
+    /// the most panes in it (or its worktree's repository).
+    pub fn focused_repo<K: Clone + Eq + Hash>(&self, repos: &RepoMatcher<K>) -> Option<K> {
+        let focused = self.workspace(self.focused_workspace_id.as_deref()?)?;
+        let mut counts: Vec<(K, usize)> = Vec::new();
+        let mut count = |key: Option<&K>| {
+            let Some(key) = key else { return };
+            match counts.iter_mut().find(|(known, _)| known == key) {
+                Some((_, n)) => *n += 1,
+                None => counts.push((key.clone(), 1)),
+            }
+        };
+        for pane in &self.panes {
+            if pane.workspace_id == focused.workspace_id {
+                count(
+                    pane.directory()
+                        .and_then(|directory| repos.locate(directory)),
+                );
+            }
+        }
+        if let Some(worktree) = &focused.worktree {
+            count(
+                worktree
+                    .repo_root
+                    .as_deref()
+                    .and_then(|root| repos.locate(root)),
+            );
+        }
+        counts
+            .into_iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|(key, _)| key)
+    }
+
     /// The workspace to show for a repository: the one with the most panes
     /// working in it (a worktree workspace of the repository counts as one
     /// such pane). Ties go to the lower workspace number.
@@ -337,6 +371,18 @@ mod tests {
     fn unknown_states_from_newer_herdr_versions_are_tolerated() {
         let agents = session().repo_agents(&matcher(&[("scratch", "/tmp/scratch")]));
         assert_eq!(agents["scratch"].state, AgentState::Unknown);
+    }
+
+    #[test]
+    fn the_focused_workspace_belongs_to_a_repository() {
+        let mut session = session();
+        let repos = matcher(&[("api", "/home/dev/api"), ("web", "/home/dev/web")]);
+        // w1 has three panes in api and one in web.
+        assert_eq!(session.focused_repo(&repos), Some("api"));
+        session.focused_workspace_id = Some("w5".into());
+        assert_eq!(session.focused_repo(&repos), None);
+        session.focused_workspace_id = None;
+        assert_eq!(session.focused_repo(&repos), None);
     }
 
     #[test]

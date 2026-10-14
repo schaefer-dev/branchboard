@@ -22,6 +22,7 @@
 //!
 //! A server reporting a different protocol is logged on connect.
 
+mod client;
 mod connection;
 mod endpoint;
 mod error;
@@ -29,6 +30,7 @@ mod link;
 mod repos;
 mod session;
 
+pub use client::{EmbeddedClient, embedded_config, find_binary, user_config_path};
 pub use endpoint::Endpoint;
 pub use error::HerdrError;
 pub use link::{HerdrLink, HerdrSink, Opened};

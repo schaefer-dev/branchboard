@@ -4,6 +4,7 @@
   import { timeAgo } from "../../lib/state/branches-model";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
+  import RightSwitch from "../shell/RightSwitch.svelte";
 
   const data = $derived(branches.commits);
   const isMainline = $derived(
@@ -46,6 +47,7 @@
       <span class="branch">{data.branch}</span>
       <span class="relation">compared with {data.mainline}</span>
     {/if}
+    <RightSwitch />
   </PaneHeader>
   <div class="body selectable">
     {#if branches.commitsError}

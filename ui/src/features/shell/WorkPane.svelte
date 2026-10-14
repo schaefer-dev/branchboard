@@ -37,7 +37,10 @@
   });
 
   function follow(list: WorkList) {
-    return () => (view.detail = list);
+    return () => {
+      view.detail = list;
+      view.right = "detail";
+    };
   }
 </script>
 
