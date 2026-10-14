@@ -15,7 +15,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Reusable calls inherit the caller's workflow name and ref. Keep release
+  # checks separate from push CI, even when both workflows run from main.
+  group: ci-${{ github.workflow }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
