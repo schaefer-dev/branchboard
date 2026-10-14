@@ -43,13 +43,16 @@ pub struct RepoEntry {
     pub group_id: Option<GroupId>,
     #[serde(default)]
     pub favorite: bool,
-    /// Ref the branches are compared with; [`DEFAULT_MAINLINE`] otherwise.
+    /// Ref the branches are compared with, if the user chose one; otherwise
+    /// [`DEFAULT_MAINLINE`] or [`FALLBACK_MAINLINE`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mainline: Option<String>,
 }
 
-/// Branches are compared with this ref unless a repository overrides it.
+/// Branches are compared with this ref unless a repository overrides it…
 pub const DEFAULT_MAINLINE: &str = "origin/development";
+/// …or with this one if the repository has no [`DEFAULT_MAINLINE`].
+pub const FALLBACK_MAINLINE: &str = "origin/main";
 
 /// Background fetch interval unless the user changes it.
 pub const DEFAULT_FETCH_INTERVAL_MINUTES: u32 = 10;
@@ -66,8 +69,9 @@ impl RepoEntry {
             .unwrap_or_else(|| folder_name(&self.path))
     }
 
-    pub fn mainline(&self) -> &str {
-        self.mainline.as_deref().unwrap_or(DEFAULT_MAINLINE)
+    /// The mainline the user chose for this repository, if any.
+    pub fn mainline(&self) -> Option<&str> {
+        self.mainline.as_deref()
     }
 }
 
@@ -205,15 +209,15 @@ impl Registry {
     }
 
     /// Sets the ref branches are compared with; `None` or a blank value
-    /// restores the default.
+    /// restores the automatic choice ([`DEFAULT_MAINLINE`], else
+    /// [`FALLBACK_MAINLINE`]). Choosing the default explicitly keeps it even
+    /// where it does not exist.
     pub fn set_mainline(
         &mut self,
         id: &RepoId,
         mainline: Option<&str>,
     ) -> Result<(), WorkspaceError> {
-        let mainline = mainline
-            .map(str::trim)
-            .filter(|m| !m.is_empty() && *m != DEFAULT_MAINLINE);
+        let mainline = mainline.map(str::trim).filter(|m| !m.is_empty());
         self.repo_mut(id)?.mainline = mainline.map(str::to_owned);
         Ok(())
     }
@@ -352,11 +356,18 @@ mod tests {
     #[test]
     fn mainline_defaults_and_resets() {
         let (mut registry, id) = registry_with_repo();
-        assert_eq!(registry.repo(&id).unwrap().mainline(), "origin/development");
+        assert_eq!(registry.repo(&id).unwrap().mainline(), None);
         registry.set_mainline(&id, Some(" origin/main ")).unwrap();
-        assert_eq!(registry.repo(&id).unwrap().mainline(), "origin/main");
+        assert_eq!(registry.repo(&id).unwrap().mainline(), Some("origin/main"));
         registry.set_mainline(&id, Some("")).unwrap();
-        assert_eq!(registry.repo(&id).unwrap().mainline, None);
+        assert_eq!(registry.repo(&id).unwrap().mainline(), None);
+        registry
+            .set_mainline(&id, Some("origin/development"))
+            .unwrap();
+        assert_eq!(
+            registry.repo(&id).unwrap().mainline(),
+            Some("origin/development")
+        );
     }
 
     #[test]

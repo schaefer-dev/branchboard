@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { clickMenu, expect, expectCall, menu, mod, openApp, test } from "./helpers";
+import { clickMenu, expect, expectCall, menu, mod, openApp, test, sidebar } from "./helpers";
 
 function board(page: Page) {
   return page.getByRole("listbox", { name: "Branches" });
@@ -116,6 +116,19 @@ test.describe("branches", () => {
     await page.keyboard.press(`${await mod(page)}+Shift+f`);
     await expect(page.getByText("Fetching failed.")).toBeVisible();
     await expect(page.getByText("Last fetch failed")).toBeVisible();
+  });
+
+  test("compares with origin/main where origin/development does not exist", async ({ page }) => {
+    await sidebar(page).locator('[data-repo-id="web"]').click();
+    await expect(page.getByRole("button", { name: /Compared with/ })).toHaveText(
+      /Compared with\s*origin\/main/,
+    );
+    await page.getByRole("button", { name: /Compared with/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Compare branches with" });
+    await expect(dialog.getByRole("textbox")).toHaveValue("");
+    await expect(
+      dialog.getByText(/Leave empty for origin\/development, or origin\/main/),
+    ).toBeVisible();
   });
 
   test("compares with another branch", async ({ page }) => {

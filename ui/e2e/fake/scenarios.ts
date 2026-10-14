@@ -95,7 +95,7 @@ function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView
     path: `/home/dev/code/${name}`,
     groupId: null,
     favorite: false,
-    mainline: "origin/development",
+    mainline: null,
     missing: false,
     ...extra,
   };

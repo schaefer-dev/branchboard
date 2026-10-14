@@ -8,9 +8,11 @@ export type RepoView = { id: RepoId,
  */
 name: string, customName: string | null, path: string, groupId: GroupId | null, favorite: boolean, 
 /**
- * The ref branches are compared with.
+ * The ref the user chose to compare branches with; `null` means
+ * automatic (`origin/development`, else `origin/main`). The branch list
+ * reports the ref actually used.
  */
-mainline: string, 
+mainline: string | null, 
 /**
  * The folder was moved or deleted, or is no longer a repository.
  */

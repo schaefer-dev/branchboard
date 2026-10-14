@@ -649,7 +649,10 @@ fn lists_switches_and_fetches_branches() {
         "set_mainline",
         json!({ "repoId": repo_id, "mainline": null }),
     );
-    assert_eq!(reset["repos"][0]["mainline"], "origin/development");
+    // No choice stored: the branch list resolves the automatic mainline.
+    assert_eq!(reset["repos"][0]["mainline"], Value::Null);
+    let list = harness.ok("get_branches", json!({ "repoId": repo_id }));
+    assert_eq!(list["mainline"], "origin/development");
 
     let settings = harness.ok("set_fetch_interval", json!({ "minutes": 0 }));
     assert_eq!(settings["settings"]["fetchIntervalMinutes"], 0);

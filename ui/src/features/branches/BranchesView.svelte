@@ -96,7 +96,7 @@
       onclick={() => void chooseMainline(repo)}
     >
       <span class="label">Compared with</span>
-      <span class="ref">{repo.mainline}</span>
+      <span class="ref">{data?.mainline ?? repo.mainline ?? ""}</span>
     </button>
     <button
       type="button"

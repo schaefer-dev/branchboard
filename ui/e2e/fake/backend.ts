@@ -176,7 +176,7 @@ export class FakeBackend {
         return (
           this.state.commits[repo.id]?.[branch] ?? {
             branch,
-            mainline: repo.mainline,
+            mainline: this.mainlineOf(repo),
             ahead: empty,
             behind: null,
           }
@@ -189,7 +189,7 @@ export class FakeBackend {
       case "set_mainline": {
         const repo = this.repo(args.repoId);
         const mainline = typeof args.mainline === "string" ? args.mainline.trim() : "";
-        repo.mainline = mainline || "origin/development";
+        repo.mainline = mainline || null;
         return this.snapshot();
       }
       case "set_fetch_interval":
@@ -356,7 +356,7 @@ export class FakeBackend {
         path,
         groupId: null,
         favorite: false,
-        mainline: "origin/development",
+        mainline: null,
         missing: false,
       });
       this.state.statuses[id] = {
@@ -374,17 +374,27 @@ export class FakeBackend {
     return { workspace: this.snapshot(), repoId: id, alreadyAdded: Boolean(existing) };
   }
 
+  /** Like the backend: the chosen mainline, else origin/development where it
+   * exists, else origin/main. */
+  private mainlineOf(repo: RepoView): string {
+    if (repo.mainline) return repo.mainline;
+    const hasDevelopment = this.state.branches[repo.id]?.branches.some((b) => b.mainline);
+    return hasDevelopment ? "origin/development" : "origin/main";
+  }
+
   private branchList(repoId: string): BranchList {
     const repo = this.repo(repoId);
     const list = (this.state.branches[repoId] ??= {
       branches: [],
-      mainline: repo.mainline,
+      mainline: this.mainlineOf(repo),
       mainlineExists: false,
       lastFetched: null,
     });
-    // The fake only knows the default mainline; any other ref "does not exist".
-    const exists = repo.mainline === "origin/development" && list.branches.some((b) => b.mainline);
-    return structuredClone({ ...list, mainline: repo.mainline, mainlineExists: exists });
+    // The fake only knows origin/development, and only where branches have
+    // counts against it; any other ref "does not exist".
+    const mainline = this.mainlineOf(repo);
+    const exists = mainline === "origin/development" && list.branches.some((b) => b.mainline);
+    return structuredClone({ ...list, mainline, mainlineExists: exists });
   }
 
   private takeFailure(command: string, message: string): void {

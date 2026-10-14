@@ -8,16 +8,17 @@ import { notices } from "../../lib/state/notices.svelte";
 import { workspace } from "../../lib/state/workspace.svelte";
 import { prompts } from "../../lib/ui/prompt.svelte";
 
-const DEFAULT_MAINLINE = "origin/development";
+/** What an empty choice means; the backend decides per repository. */
+const AUTOMATIC_MAINLINE = "origin/development, or origin/main where that doesn't exist";
 const FETCH_INTERVALS = [5, 10, 30, 60] as const;
 
 export async function chooseMainline(repo: RepoView): Promise<void> {
   const mainline = await prompts.ask({
     title: "Compare branches with",
     label: "Branch",
-    initial: repo.mainline,
-    placeholder: DEFAULT_MAINLINE,
-    hint: `A local or remote branch, e.g. origin/main. Leave empty for ${DEFAULT_MAINLINE}.`,
+    initial: repo.mainline ?? "",
+    placeholder: branches.list?.mainline ?? "origin/development",
+    hint: `A local or remote branch. Leave empty for ${AUTOMATIC_MAINLINE}.`,
     confirmLabel: "Compare",
     allowEmpty: true,
   });

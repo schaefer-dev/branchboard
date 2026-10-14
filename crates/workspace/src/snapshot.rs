@@ -30,8 +30,10 @@ pub struct RepoView {
     pub path: String,
     pub group_id: Option<GroupId>,
     pub favorite: bool,
-    /// The ref branches are compared with.
-    pub mainline: String,
+    /// The ref the user chose to compare branches with; `null` means
+    /// automatic (`origin/development`, else `origin/main`). The branch list
+    /// reports the ref actually used.
+    pub mainline: Option<String>,
     /// The folder was moved or deleted, or is no longer a repository.
     pub missing: bool,
 }
@@ -49,7 +51,7 @@ impl WorkspaceSnapshot {
                     path: repo.path.display().to_string(),
                     group_id: repo.group_id.clone(),
                     favorite: repo.favorite,
-                    mainline: repo.mainline().to_owned(),
+                    mainline: repo.mainline().map(str::to_owned),
                     missing: is_missing(&repo.path),
                 })
                 .collect(),

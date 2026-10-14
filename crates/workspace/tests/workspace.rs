@@ -236,8 +236,9 @@ async fn fetches_and_lists_branches_with_the_configured_mainline() {
     let (added, _) = workspace.add_repo(&git, &repo).await.unwrap();
     let id = added.id().clone();
 
+    // Without origin/development the default falls back to origin/main.
     let list = workspace.branches(&git, &id).await.unwrap();
-    assert_eq!(list.mainline, "origin/development");
+    assert_eq!(list.mainline, "origin/main");
     assert!(!list.mainline_exists);
 
     workspace
@@ -260,4 +261,40 @@ async fn fetches_and_lists_branches_with_the_configured_mainline() {
         states.as_slice(),
         [FetchState::Running, FetchState::Done]
     ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn compares_with_origin_main_without_origin_development() {
+    let git = git().await;
+    let root = tempfile::tempdir().unwrap();
+    let repo = init_repo(&git, &root.path().join("api")).await;
+    commit_all(&git, &repo).await;
+    let (workspace, _events) = open(root.path().join("workspace.json"));
+    let (added, _) = workspace.add_repo(&git, &repo).await.unwrap();
+    let id = added.id().clone();
+    let set_ref = |name: &str| {
+        let status = std::process::Command::new("git")
+            .args(["update-ref", name, "HEAD"])
+            .current_dir(&repo)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    };
+
+    // Neither exists: origin/main is reported missing.
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/main");
+    assert!(!list.mainline_exists);
+
+    set_ref("refs/remotes/origin/main");
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/main");
+    assert!(list.mainline_exists);
+
+    // origin/development wins as soon as it exists.
+    set_ref("refs/remotes/origin/development");
+    let list = workspace.branches(&git, &id).await.unwrap();
+    assert_eq!(list.mainline, "origin/development");
+    let commits = workspace.branch_commits(&git, &id, "main").await.unwrap();
+    assert_eq!(commits.mainline, "origin/development");
 }

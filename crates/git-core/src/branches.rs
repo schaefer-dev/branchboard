@@ -139,7 +139,8 @@ impl Git {
         Ok(modified.map(unix_seconds))
     }
 
-    async fn ref_exists(&self, repo: &Path, name: &str) -> Result<bool, GitError> {
+    /// Whether `name` resolves to a commit in `repo`.
+    pub async fn ref_exists(&self, repo: &Path, name: &str) -> Result<bool, GitError> {
         let output = self
             .runner()
             .command(["rev-parse", "--verify", "--quiet", "--end-of-options"])

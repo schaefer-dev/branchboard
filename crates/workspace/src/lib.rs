@@ -24,7 +24,8 @@ use tokio::task::JoinSet;
 pub use editor::Editor;
 pub use error::WorkspaceError;
 pub use registry::{
-    Added, DEFAULT_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId, Settings,
+    Added, DEFAULT_MAINLINE, FALLBACK_MAINLINE, Group, GroupId, Registry, RepoEntry, RepoId,
+    Settings,
 };
 pub use snapshot::{
     BranchCommits, FetchState, FetchUpdate, RepoView, StatusUpdate, SummaryState, SummaryUpdate,
@@ -257,7 +258,7 @@ impl Workspace {
     }
 
     pub async fn branches(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
-        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let (path, mainline) = self.repo_path_and_mainline(git, id).await?;
         Ok(git.branches(&path, &mainline).await?)
     }
 
@@ -282,7 +283,7 @@ impl Workspace {
         branch: &str,
     ) -> Result<BranchCommits, WorkspaceError> {
         const LIMIT: usize = 100;
-        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let (path, mainline) = self.repo_path_and_mainline(git, id).await?;
         let list = git.branches(&path, &mainline).await?;
         let (ahead, behind) = if list.mainline_exists {
             let ahead = git.log(&path, Some(&mainline), branch, LIMIT).await?;
@@ -307,7 +308,7 @@ impl Workspace {
         id: &RepoId,
         branch: &str,
     ) -> Result<BranchList, WorkspaceError> {
-        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let (path, mainline) = self.repo_path_and_mainline(git, id).await?;
         {
             let _writes = self.monitor.writes.lock().await;
             git.switch(&path, branch).await?;
@@ -320,7 +321,7 @@ impl Workspace {
     /// Progress is also published as [`FetchUpdate`]s. A fetch that is
     /// already running is not started twice.
     pub async fn fetch(&self, git: &Git, id: &RepoId) -> Result<BranchList, WorkspaceError> {
-        let (path, mainline) = self.repo_path_and_mainline(id).await?;
+        let path = self.repo_path(id).await?;
         let started = self
             .fetching
             .lock()
@@ -342,6 +343,8 @@ impl Workspace {
                 }
             }
         }
+        // The automatic mainline may only exist now that it was fetched.
+        let (path, mainline) = self.repo_path_and_mainline(git, id).await?;
         Ok(git.branches(&path, &mainline).await?)
     }
 
@@ -383,13 +386,25 @@ impl Workspace {
         Ok(self.registry.lock().await.repo(id)?.path.clone())
     }
 
+    /// The repository's path and the ref its branches are compared with:
+    /// the one the user chose, else [`DEFAULT_MAINLINE`] if it exists, else
+    /// [`FALLBACK_MAINLINE`].
     async fn repo_path_and_mainline(
         &self,
+        git: &Git,
         id: &RepoId,
     ) -> Result<(PathBuf, String), WorkspaceError> {
-        let registry = self.registry.lock().await;
-        let repo = registry.repo(id)?;
-        Ok((repo.path.clone(), repo.mainline().to_owned()))
+        let (path, chosen) = {
+            let registry = self.registry.lock().await;
+            let repo = registry.repo(id)?;
+            (repo.path.clone(), repo.mainline().map(str::to_owned))
+        };
+        let mainline = match chosen {
+            Some(mainline) => mainline,
+            None if git.ref_exists(&path, DEFAULT_MAINLINE).await? => DEFAULT_MAINLINE.to_owned(),
+            None => FALLBACK_MAINLINE.to_owned(),
+        };
+        Ok((path, mainline))
     }
 }
 
