@@ -64,6 +64,7 @@ test.describe("coding agents in herdr", () => {
             repoId: "web",
           },
         ],
+        focusedRepoId: null,
       }),
     );
     await expect(badge(page, "web")).toHaveAttribute("data-state", "blocked");
@@ -72,7 +73,9 @@ test.describe("coding agents in herdr", () => {
     await expect(agentList(page).getByRole("heading")).toHaveText("Agents 1 needs input");
 
     // herdr stopped: no badges, and nothing to open.
-    await page.evaluate(() => window.__fake.setAgents({ available: false, repos: [], agents: [] }));
+    await page.evaluate(() =>
+      window.__fake.setAgents({ available: false, repos: [], agents: [], focusedRepoId: null }),
+    );
     await expect(sidebar(page).getByRole("img")).toHaveCount(0);
     await expect(agentList(page)).toHaveCount(0);
     await sidebar(page).locator('[data-repo-id="web"]').click({ button: "right" });
@@ -98,7 +101,9 @@ test.describe("coding agents in herdr", () => {
     // herdr runs (e.g. started from another terminal) but Branchboard cannot
     // find its binary, so there is no embedded terminal.
     await openApp(page);
-    await page.evaluate(() => window.__fake.setAgents({ available: true, repos: [], agents: [] }));
+    await page.evaluate(() =>
+      window.__fake.setAgents({ available: true, repos: [], agents: [], focusedRepoId: null }),
+    );
     await sidebar(page).locator('[data-repo-id="web"]').click({ button: "right" });
     await expect.poll(() => menu(page)).toContain("Open in herdr");
     await clickMenu(page, "Open in herdr");

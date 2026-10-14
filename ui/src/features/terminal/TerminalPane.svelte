@@ -82,14 +82,19 @@
       terminal.write(data);
     });
     instance.open(host);
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => {
-        webgl.dispose();
-      });
-      instance.loadAddon(webgl);
-    } catch {
-      // The DOM renderer stays in place.
+    // On macOS the DOM renderer lets WebKit draw text with CoreText, as
+    // native terminals do (heavier, smoother strokes than WebGL's glyph
+    // atlas). Elsewhere WebGL is faster and looks the same.
+    if (!mac) {
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => {
+          webgl.dispose();
+        });
+        instance.loadAddon(webgl);
+      } catch {
+        // The DOM renderer stays in place.
+      }
     }
     term = instance;
     fit = fitAddon;
@@ -202,6 +207,9 @@
 
   .host {
     position: absolute;
+    /* The app uses thin "antialiased" text; terminal text keeps the
+       system's font smoothing like native terminals. */
+    -webkit-font-smoothing: auto;
     inset: var(--space-2) 0 0 var(--space-3);
   }
 
