@@ -12,7 +12,6 @@ function branch(page: Page, name: string) {
 
 async function openBranches(page: Page) {
   await openApp(page);
-  await page.getByRole("tab", { name: "Branches" }).click();
   await expect(board(page)).toBeVisible();
 }
 
@@ -50,6 +49,7 @@ test.describe("branches", () => {
   });
 
   test("shows the commits a branch is ahead and behind", async ({ page }) => {
+    await branch(page, "feature/login-rate-limit").click();
     const pane = page.getByRole("region", { name: "Branch commits" });
     await expect(pane.getByText("feature/login-rate-limit", { exact: true })).toBeVisible();
     await expect(
@@ -73,7 +73,6 @@ test.describe("branches", () => {
     await page.getByRole("button", { name: "A–Z" }).click();
     await expect(board(page).locator(".name").first()).toHaveText("chore/old-cleanup");
     await page.reload();
-    await page.getByRole("tab", { name: "Branches" }).click();
     await expect(page.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
     await expect(board(page).locator(".name").first()).toHaveText("chore/old-cleanup");
   });
@@ -137,11 +136,13 @@ test.describe("branches", () => {
     await expectCall(page, "set_fetch_interval", { minutes: 0 });
   });
 
-  test("switches views with the keyboard", async ({ page }) => {
+  test("focuses the lists with the keyboard", async ({ page }) => {
     const key = await mod(page);
-    await page.keyboard.press(`${key}+1`);
-    await expect(page.getByRole("listbox", { name: "Changed files" })).toBeVisible();
     await page.keyboard.press(`${key}+2`);
-    await expect(board(page)).toBeVisible();
+    await expect(board(page)).toBeFocused();
+    await expect(page.getByRole("region", { name: "Branch commits" })).toBeVisible();
+    await page.keyboard.press(`${key}+1`);
+    await expect(page.getByRole("listbox", { name: "Changed files" })).toBeFocused();
+    await expect(page.getByRole("region", { name: "Diff" })).toBeVisible();
   });
 });

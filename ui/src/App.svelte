@@ -78,7 +78,7 @@
   <main class="panes">
     <RepoSidebar />
     <WorkPane />
-    {#if view.work === "branches"}
+    {#if view.detail === "branches"}
       <CommitsPane />
     {:else}
       <DiffPane />

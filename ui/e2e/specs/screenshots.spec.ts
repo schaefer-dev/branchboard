@@ -25,7 +25,11 @@ for (const scheme of schemes) {
 
     test("branches", async ({ page }, info) => {
       await openApp(page);
-      await page.getByRole("tab", { name: "Branches" }).click();
+      await page
+        .getByRole("listbox", { name: "Branches" })
+        .locator('[data-branch="feature/login-rate-limit"]')
+        .click();
+      await expect(page.getByRole("region", { name: "Branch commits" })).toBeVisible();
       await expect(page.getByText("Fetched 3 min ago")).toBeVisible();
       await capture(page, info.project.name, "branches", scheme);
     });

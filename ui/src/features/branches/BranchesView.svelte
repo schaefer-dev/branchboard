@@ -2,21 +2,26 @@
   import type { Branch, RepoView } from "../../lib/api";
   import { branches } from "../../lib/state/branches.svelte";
   import { timeAgo } from "../../lib/state/branches-model";
+  import { view } from "../../lib/state/view.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import Icon from "../../lib/ui/Icon.svelte";
+  import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import VirtualList from "../../lib/ui/VirtualList.svelte";
+  import { BRANCH_ROW_HEIGHT } from "./branch-layout";
   import BranchRow from "./BranchRow.svelte";
   import { chooseMainline, showBranchMenu, showBranchOptions } from "./branch-actions";
 
   interface Props {
     repo: RepoView;
+    /** Wanted height of the list; when space runs short it shrinks so the changes keep theirs. */
+    height: number;
+    /** Rendered height of the list. */
+    listHeight?: number;
   }
 
-  let { repo }: Props = $props();
+  let { repo, height, listHeight = $bindable(0) }: Props = $props();
 
-  const ROW_HEIGHT = 28;
-
-  let list = $state<{ scrollToIndex: (index: number) => void }>();
+  let list = $state<{ scrollToIndex: (index: number) => void; focus: () => void }>();
   /** Re-rendered every minute so "5 min ago" stays true. */
   let now = $state(Date.now() / 1000);
 
@@ -44,6 +49,10 @@
   $effect(() => {
     const index = branches.branches.findIndex((branch) => branch.name === branches.cursor);
     if (index !== -1) list?.scrollToIndex(index);
+  });
+
+  $effect(() => {
+    if (view.focusRequest?.list === "branches") list?.focus();
   });
 
   function branchAt(event: Event): string | undefined {
@@ -79,7 +88,7 @@
 </script>
 
 <div class="board">
-  <div class="toolbar">
+  <PaneHeader>
     <button
       type="button"
       class="mainline"
@@ -109,7 +118,7 @@
     >
       <Icon name="more" />
     </button>
-  </div>
+  </PaneHeader>
   <div class="meta">
     <span
       class="fetched"
@@ -151,42 +160,44 @@
       <span title="Commits ahead/behind {data.mainline}">Mainline</span>
       <span title="Commits ahead/behind the branch's upstream">Upstream</span>
     </div>
-    <VirtualList
-      bind:this={list}
-      class="branches"
-      items={branches.branches}
-      itemHeight={ROW_HEIGHT}
-      key={(branch: Branch) => branch.name}
-      role="listbox"
-      aria-label="Branches"
-      aria-activedescendant={branches.cursor ? `branch-${branches.cursor}` : undefined}
-      tabindex={0}
-      onclick={(event: MouseEvent) => {
-        const name = branchAt(event);
-        if (name) branches.select(name);
-      }}
-      ondblclick={(event: MouseEvent) => {
-        const name = branchAt(event);
-        if (name) void branches.switchTo(name);
-      }}
-      oncontextmenu={(event: MouseEvent) => {
-        const name = branchAt(event);
-        if (!name) return;
-        event.preventDefault();
-        branches.select(name);
-        void showBranchMenu(name);
-      }}
-      onkeydown={onKeydown}
-    >
-      {#snippet row(branch: Branch)}
-        <BranchRow
-          {branch}
-          mainline={data.mainline}
-          cursor={branch.name === branches.cursor}
-          switching={branch.name === branches.switching}
-        />
-      {/snippet}
-    </VirtualList>
+    <div class="list" style:height="{height}px" bind:clientHeight={listHeight}>
+      <VirtualList
+        bind:this={list}
+        class="branches"
+        items={branches.branches}
+        itemHeight={BRANCH_ROW_HEIGHT}
+        key={(branch: Branch) => branch.name}
+        role="listbox"
+        aria-label="Branches"
+        aria-activedescendant={branches.cursor ? `branch-${branches.cursor}` : undefined}
+        tabindex={0}
+        onclick={(event: MouseEvent) => {
+          const name = branchAt(event);
+          if (name) branches.select(name);
+        }}
+        ondblclick={(event: MouseEvent) => {
+          const name = branchAt(event);
+          if (name) void branches.switchTo(name);
+        }}
+        oncontextmenu={(event: MouseEvent) => {
+          const name = branchAt(event);
+          if (!name) return;
+          event.preventDefault();
+          branches.select(name);
+          void showBranchMenu(name);
+        }}
+        onkeydown={onKeydown}
+      >
+        {#snippet row(branch: Branch)}
+          <BranchRow
+            {branch}
+            mainline={data.mainline}
+            cursor={branch.name === branches.cursor}
+            switching={branch.name === branches.switching}
+          />
+        {/snippet}
+      </VirtualList>
+    </div>
   {/if}
 </div>
 
@@ -195,16 +206,9 @@
     --count-column: 76px;
 
     display: flex;
+    flex: 0 1 auto;
     flex-direction: column;
-    height: 100%;
     min-height: 0;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-3) 0 var(--space-4);
   }
 
   .mainline {
@@ -257,7 +261,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    padding: var(--space-2) var(--space-4) var(--space-3);
+    padding: var(--space-2) var(--space-4);
     border-bottom: 1px solid var(--color-border);
     font-size: var(--text-sm);
   }
@@ -316,9 +320,13 @@
     text-align: right;
   }
 
-  :global(.branches) {
-    flex: 1;
+  .list {
+    flex: 0 1 auto;
     min-height: 0;
+  }
+
+  .list > :global(.branches) {
+    height: 100%;
     outline: none;
   }
 

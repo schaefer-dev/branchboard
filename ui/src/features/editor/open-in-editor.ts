@@ -45,7 +45,7 @@ export async function openChangeInEditor(item: ChangeItem): Promise<void> {
 
 /** The file under the cursor in the changes view, else the repository. */
 export function openCurrentInEditor(): Promise<void> {
-  const item = view.work === "changes" ? changes.cursorItem : null;
+  const item = view.detail === "changes" ? changes.cursorItem : null;
   if (item) return openChangeInEditor(item);
   const repo = workspace.activeRepo;
   return repo ? openRepoInEditor(repo) : Promise.resolve();

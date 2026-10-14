@@ -3,6 +3,7 @@
   import { isMac } from "../../lib/platform/os";
   import { changes } from "../../lib/state/changes.svelte";
   import type { ChangeItem } from "../../lib/state/changes-model";
+  import { view } from "../../lib/state/view.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import VirtualList from "../../lib/ui/VirtualList.svelte";
   import FileRow from "./FileRow.svelte";
@@ -14,7 +15,7 @@
 
   const ROW_HEIGHT = 26;
 
-  let list = $state<{ scrollToIndex: (index: number) => void }>();
+  let list = $state<{ scrollToIndex: (index: number) => void; focus: () => void }>();
 
   const status = $derived(changes.status);
   const rows = $derived.by((): Row[] => {
@@ -35,6 +36,10 @@
   $effect(() => {
     const index = rows.findIndex((row) => row.key === changes.cursor);
     if (index !== -1) list?.scrollToIndex(index);
+  });
+
+  $effect(() => {
+    if (view.focusRequest?.list === "changes") list?.focus();
   });
 
   function modeFor(event: MouseEvent | KeyboardEvent) {
@@ -159,7 +164,8 @@
 
 <style>
   :global(.changes) {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     outline: none;
   }
 

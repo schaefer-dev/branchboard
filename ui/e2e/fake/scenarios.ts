@@ -44,6 +44,22 @@ function singleBranch(name: string): BranchList {
   };
 }
 
+/** More branches than the branch list shows without scrolling. */
+function manyBranches(count: number): BranchList {
+  return {
+    branches: Array.from({ length: count }, (_, index) => ({
+      name: `feature/topic-${String(index + 1).padStart(2, "0")}`,
+      current: index === 0,
+      upstream: { kind: "none" as const },
+      mainline: null,
+      committedAt: 1_767_225_600 - index * 3600,
+    })),
+    mainline: "origin/development",
+    mainlineExists: false,
+    lastFetched: null,
+  };
+}
+
 export interface Scenario {
   workspace: WorkspaceSnapshot;
   statuses: Record<string, StatusSnapshot>;
@@ -124,6 +140,7 @@ function defaultScenario(): Scenario {
     branches: {
       api: { ...structuredClone(recordedBranches.list), lastFetched: recentFetch() },
       web: singleBranch("development"),
+      infra: manyBranches(12),
       dotfiles: singleBranch("main"),
     },
     commits: { api: structuredClone(recordedBranches.commits) },

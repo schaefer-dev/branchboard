@@ -44,17 +44,21 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
     }),
     commands.register({
       id: "view.changes",
-      title: "Show changes",
+      title: "Focus changes",
       shortcut: { key: "1", mod: true },
       enabled: () => usableRepo() !== null,
-      run: () => (view.work = "changes"),
+      run: () => {
+        view.focus("changes");
+      },
     }),
     commands.register({
       id: "view.branches",
-      title: "Show branches",
+      title: "Focus branches",
       shortcut: { key: "2", mod: true },
       enabled: () => usableRepo() !== null,
-      run: () => (view.work = "branches"),
+      run: () => {
+        view.focus("branches");
+      },
     }),
     commands.register({
       id: "repo.fetch",

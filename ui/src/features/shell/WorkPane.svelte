@@ -1,59 +1,99 @@
 <script lang="ts">
   import { branches } from "../../lib/state/branches.svelte";
   import { changes } from "../../lib/state/changes.svelte";
-  import { view } from "../../lib/state/view.svelte";
+  import { view, type WorkList } from "../../lib/state/view.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
-  import Tabs from "../../lib/ui/Tabs.svelte";
+  import Splitter from "../../lib/ui/Splitter.svelte";
+  import { AUTO_BRANCH_ROWS, BRANCH_ROW_HEIGHT } from "../branches/branch-layout";
   import BranchesView from "../branches/BranchesView.svelte";
   import ChangesView from "../changes/ChangesView.svelte";
   import { locateRepo, removeRepo } from "../repos/repo-actions";
 
-  const views = [
-    { id: "changes", label: "Changes" },
-    { id: "branches", label: "Branches" },
-  ] as const;
+  /** The changes keep at least this much height when the branch list is resized. */
+  const MIN_CHANGES_HEIGHT = 120;
 
   const repo = $derived(workspace.activeRepo);
   const summary = $derived(repo ? workspace.summaries.get(repo.id) : undefined);
   const missing = $derived(repo !== null && (repo.missing || summary?.status === "missing"));
+
+  let listHeight = $state(0);
+  let changesHeight = $state(0);
+  const hasList = $derived(branches.list !== null && branches.error === null);
+  const listHeightWanted = $derived(
+    view.branchHeight ??
+      Math.min(Math.max(branches.branches.length, 1), AUTO_BRANCH_ROWS) * BRANCH_ROW_HEIGHT,
+  );
+  /** The list and the changes share this space; the measured sum stays put while resizing. */
+  const maxListHeight = $derived(
+    Math.max(BRANCH_ROW_HEIGHT, listHeight + changesHeight - MIN_CHANGES_HEIGHT),
+  );
 
   $effect(() => {
     const shown = repo && !missing ? repo.id : null;
     void changes.show(shown);
     void branches.show(shown);
   });
+
+  function follow(list: WorkList) {
+    return () => (view.detail = list);
+  }
 </script>
 
 <section class="work" aria-label="Working copy">
-  <PaneHeader>
-    <Tabs tabs={views} bind:selected={view.work} label="View" />
-  </PaneHeader>
-  <div class="body" role="tabpanel">
-    {#if !repo}
-      <EmptyState title="Select a repository to see its {view.work}." />
-    {:else if missing}
-      <div class="missing">
-        <EmptyState
-          title="{repo.name} can't be found"
-          hint="The folder {repo.path} was moved, renamed or deleted. Locate it to keep using it here."
-        />
-        <div class="actions">
-          <button type="button" class="btn btn-primary" onclick={() => void locateRepo(repo)}>
-            Locate…
-          </button>
-          <button type="button" class="btn" onclick={() => void removeRepo(repo)}>
-            Remove from Branchboard
-          </button>
-        </div>
+  {#if !repo}
+    <PaneHeader />
+    <EmptyState title="Select a repository to see its changes and branches." />
+  {:else if missing}
+    <PaneHeader />
+    <div class="missing">
+      <EmptyState
+        title="{repo.name} can't be found"
+        hint="The folder {repo.path} was moved, renamed or deleted. Locate it to keep using it here."
+      />
+      <div class="actions">
+        <button type="button" class="btn btn-primary" onclick={() => void locateRepo(repo)}>
+          Locate…
+        </button>
+        <button type="button" class="btn" onclick={() => void removeRepo(repo)}>
+          Remove from Branchboard
+        </button>
       </div>
-    {:else if view.work === "changes"}
-      <ChangesView />
-    {:else}
-      <BranchesView {repo} />
+    </div>
+  {:else}
+    <div
+      class="section branches-section"
+      role="group"
+      aria-label="Branch board"
+      onfocusin={follow("branches")}
+      onpointerdown={follow("branches")}
+    >
+      <BranchesView {repo} height={listHeightWanted} bind:listHeight />
+    </div>
+    {#if hasList}
+      <Splitter
+        label="Resize branches"
+        value={Math.min(listHeightWanted, maxListHeight)}
+        min={BRANCH_ROW_HEIGHT}
+        max={maxListHeight}
+        step={BRANCH_ROW_HEIGHT}
+        onchange={(height: number) => (view.branchHeight = height)}
+        onreset={() => (view.branchHeight = null)}
+      />
     {/if}
-  </div>
+    <div
+      class="section changes-section"
+      role="group"
+      aria-label="Changes"
+      style:min-height="{MIN_CHANGES_HEIGHT}px"
+      bind:clientHeight={changesHeight}
+      onfocusin={follow("changes")}
+      onpointerdown={follow("changes")}
+    >
+      <ChangesView />
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -61,19 +101,27 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
   }
 
-  .body {
-    flex: 1;
+  .section {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
-    overflow-y: auto;
   }
 
-  .body:has(:global(.changes)),
-  .body:has(:global(.branches)) {
-    overflow: hidden;
+  .branches-section {
+    flex: 0 1 auto;
+  }
+
+  .changes-section {
+    flex: 1 1 0;
+  }
+
+  .missing {
+    overflow-y: auto;
   }
 
   .actions {

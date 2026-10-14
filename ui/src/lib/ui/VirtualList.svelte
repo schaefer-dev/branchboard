@@ -47,6 +47,10 @@
   export function scrollToTop(): void {
     if (viewport) viewport.scrollTop = 0;
   }
+
+  export function focus(): void {
+    viewport?.focus();
+  }
 </script>
 
 <div

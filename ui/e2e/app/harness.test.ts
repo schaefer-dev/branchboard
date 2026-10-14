@@ -740,8 +740,42 @@ void test("cleanup uses bounded removal retries and restores policy before delet
         records.push(data);
       },
     }),
-    new RegExp(root),
+    (error: unknown) => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(
+        error.message,
+        `Smoke cleanup failed; temporary test data was retained at ${root}`,
+      );
+      return true;
+    },
   );
   assert.equal(existsSync(root), true);
   assert.match(JSON.stringify(records), /EPERM/);
 });
+
+for (const root of [
+  String.raw`C:\Users\RUNNER~1\AppData\Local\Temp\cleanup-remove-K8r5pq`,
+  String.raw`C:\Smoke Test\cleanup.[fixture]+(1)`,
+  "/tmp/cleanup.[fixture]+(1)",
+]) {
+  void test(`cleanup reports the literal retained path ${root}`, async () => {
+    const failure = Object.assign(new Error("profile locked"), { code: "EPERM" });
+    await assert.rejects(
+      cleanup(undefined, [], root, undefined, {
+        remove: (path) => {
+          assert.equal(path, root);
+          return Promise.reject(failure);
+        },
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(
+          error.message,
+          `Smoke cleanup failed; temporary test data was retained at ${root}`,
+        );
+        assert.deepEqual(error.errors, [failure]);
+        return true;
+      },
+    );
+  });
+}
