@@ -23,6 +23,7 @@ impl Harness {
         Self::with_options(AppOptions::default())
     }
 
+    #[cfg(unix)]
     fn with_editor(editor: Option<PathBuf>) -> Self {
         Self::with_options(AppOptions {
             editor,
@@ -980,6 +981,7 @@ fn opens_workspaces_and_agents_in_herdr() {
 }
 
 /// Waits until `path` exists and holds text for which `done` is true.
+#[cfg(unix)]
 fn wait_for_file(path: &Path, done: impl Fn(&str) -> bool) -> String {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     loop {

@@ -53,6 +53,7 @@ export class OwnedProcess {
   async stop(): Promise<void> {
     this.stopped = true;
     this.problem ??= new Error("Owned process stopped");
+    let terminationError: Error | undefined;
     if (
       process.platform === "win32" &&
       this.child.pid &&
@@ -64,7 +65,7 @@ export class OwnedProcess {
         timeout: 5_000,
       });
       if (result.error || result.status !== 0) {
-        throw new Error(
+        terminationError = new Error(
           `Process tree termination failed: ${result.error?.message ?? result.stderr}; temporary test data was retained`,
         );
       }
@@ -80,7 +81,10 @@ export class OwnedProcess {
         controller.abort();
       }
     };
+    // taskkill can report an error when a process exits during tree traversal.
+    // Its exit status alone does not tell us whether our child is still alive.
     if (await wait()) return;
+    if (terminationError) throw terminationError;
     this.child.kill("SIGKILL");
     if (!(await wait()))
       throw new Error("Process did not terminate; temporary test data was retained");

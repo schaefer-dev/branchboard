@@ -5,6 +5,8 @@ import { availablePort, cleanup, waitDebuggingReady } from "./attach.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import childProcesses from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 import { test, type TestContext } from "node:test";
 
 import { Driver } from "./driver.ts";
@@ -220,6 +222,50 @@ void test("stop waits for the driver to close", async (t) => {
   const process = driver(t);
   await process.stop();
   assert.ok(process.child.exitCode !== null || process.child.signalCode !== null);
+});
+
+void test(
+  "Windows cleanup accepts a taskkill error only when the owned process exits",
+  { skip: process.platform !== "win32" },
+  async (t) => {
+    const process = driver(t);
+    t.mock.method(childProcesses, "spawnSync", () => {
+      process.child.kill();
+      return { status: 1, stderr: "The process exited during tree traversal" };
+    });
+    syncBuiltinESMExports();
+    try {
+      await process.stop();
+      assert.ok(process.child.exitCode !== null || process.child.signalCode !== null);
+    } finally {
+      t.mock.restoreAll();
+      syncBuiltinESMExports();
+    }
+  },
+);
+
+void test("element lookup uses the W3C element identifier for click and typing", async (t) => {
+  const calls: string[] = [];
+  const base = await server(t, (request, response) => {
+    calls.push(`${request.method ?? ""} ${request.url ?? ""}`);
+    if (request.url === "/session") {
+      response.end('{"value":{"sessionId":"elements"}}');
+    } else if (request.url === "/session/elements/element") {
+      response.end('{"value":{"element-6066-11e4-a52e-4f735466cecf":"file-row"}}');
+    } else {
+      response.end('{"value":null}');
+    }
+  });
+  const session = await Session.start(base, "app.exe");
+  await session.click('[data-key="unstaged:hello.txt"]');
+  await session.type('[role="listbox"]', " ");
+  assert.deepEqual(calls, [
+    "POST /session",
+    "POST /session/elements/element",
+    "POST /session/elements/element/file-row/click",
+    "POST /session/elements/element",
+    "POST /session/elements/element/file-row/value",
+  ]);
 });
 
 void test("attach sends only WebView2 attach capabilities", async (t) => {

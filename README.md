@@ -35,7 +35,17 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
 
 ## Getting started
 
-Branchboard is in active development. To try the current version, build it from source.
+Branchboard is in active development. Installers are distributed through
+[GitHub Releases](https://github.com/schaefer-dev/branchboard/releases), or you can build from source.
+
+- **macOS:** choose the `aarch64` DMG for Apple Silicon or the `x64` DMG for Intel.
+- **Windows x64:** use the `-setup.exe` installer. It installs for the current user and
+  does not require administrator rights. If WebView2 is missing, the installer downloads
+  it; this requires internet access.
+
+Git 2.41 or newer must be available on `PATH`. Install herdr separately for agent features.
+Builds are unsigned and macOS builds are not notarized, so Gatekeeper or SmartScreen may
+show a warning. Code signing and automatic updates are not currently configured.
 
 ### Prerequisites
 
@@ -65,6 +75,8 @@ pnpm app:build
 
 Build artifacts are written under `target/release/`; installers are under
 `target/release/bundle/`. Code signing and automatic updates are not currently configured.
+When building with an explicit `--target`, artifacts are under
+`target/<target>/release/` instead. Windows builds produce a per-user NSIS EXE installer.
 
 ### First steps
 
@@ -121,6 +133,45 @@ For end-to-end tests, install the browser runtimes once with
 Set `BRANCHBOARD_WORKSPACE_FILE` to an absolute path to a separate JSON file when developing
 or testing with a different repository list. This keeps that workspace separate from your
 usual Branchboard configuration.
+
+### Creating a release
+
+Keep the workspace version in `Cargo.toml` and the version in `package.json` equal,
+and update `Cargo.lock` when changing the workspace version. Tauri inherits the Cargo
+version. Commit and push the release changes before tagging that commit:
+
+```sh
+git tag -a v0.1.0 -m "Branchboard 0.1.0"
+git push origin v0.1.0
+```
+
+The Release workflow runs the existing CI checks, then builds Apple Silicon and Intel
+macOS bundles and the Windows x64 installer. The Windows job verifies installation,
+reinstallation, the installed app, and uninstallation as a temporary standard user.
+All bundles are uploaded to one **draft** release. A failed build or installer check
+can leave a partial draft; publish only after the workflow succeeds and all platform
+installers are present. Open the draft, review its notes and assets, then publish it.
+
+For a transient failure, select **Re-run failed jobs** in Actions, or run:
+
+```sh
+gh run rerun <run-id> --failed
+```
+
+Reruns use the original tagged commit and upload to the same draft. If a code fix is
+needed before publication, commit and push the fix, ensure the old workflow has stopped,
+then delete the incomplete draft and recreate the tag:
+
+```sh
+gh release delete v0.1.0 --yes
+git push origin :refs/tags/v0.1.0
+git tag -d v0.1.0
+git tag -a v0.1.0 -m "Branchboard 0.1.0"
+git push origin v0.1.0
+```
+
+Only do this while the release is unpublished. After publication, use a new patch
+version such as `0.1.1`; the workflow refuses to modify an already published release.
 
 ### Project layout
 

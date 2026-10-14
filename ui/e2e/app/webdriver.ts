@@ -1,7 +1,7 @@
 // A minimal W3C WebDriver client over `fetch`, enough to drive the real app
 // through `tauri-driver` without pulling in a WebDriver framework.
 
-const ELEMENT = "element-6066-11e4-a52f-4a5d6b6b8b4d";
+const ELEMENT = "element-6066-11e4-a52e-4f735466cecf";
 
 /** WebDriver key codes, see https://www.w3.org/TR/webdriver2/#keyboard-actions */
 export const Keys = { space: "", enter: "", arrowDown: "" } as const;
