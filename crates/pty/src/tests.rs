@@ -35,13 +35,25 @@ enum Ended {
 const SIZE: Size = Size { cols: 80, rows: 24 };
 
 /// Collects output until `done` holds for it or the program exits.
-fn output_until(events: &Receiver<Event>, done: impl Fn(&str) -> bool) -> (String, Ended) {
+///
+/// Answers the cursor position query like a terminal would: `ConPTY` asks
+/// on startup and holds back all output until it gets a reply.
+fn output_until(
+    pty: &Pty,
+    events: &Receiver<Event>,
+    done: impl Fn(&str) -> bool,
+) -> (String, Ended) {
     let mut text = String::new();
+    let mut answered = false;
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         match events.recv_timeout(Duration::from_millis(100)) {
             Ok(Event::Output(bytes)) => {
                 text.push_str(&String::from_utf8_lossy(&bytes));
+                if !answered && text.contains("\x1b[6n") {
+                    answered = true;
+                    let _ = pty.write(b"\x1b[1;1R");
+                }
                 if done(&text) {
                     return (text, Ended::Running);
                 }
@@ -68,8 +80,8 @@ fn runs_a_program_and_reports_its_exit() {
     } else {
         "printf hello; exit 3"
     };
-    let (_pty, events) = spawn(&shell(script), SIZE);
-    let (text, exit) = output_until(&events, |_| false);
+    let (pty, events) = spawn(&shell(script), SIZE);
+    let (text, exit) = output_until(&pty, &events, |_| false);
     assert!(text.contains("hello"), "{text:?}");
     assert_eq!(exit, Ended::Exited(Some(3)));
 }
@@ -81,8 +93,8 @@ fn passes_the_environment() {
     } else {
         "printf %s \"$BRANCHBOARD_TEST\""
     };
-    let (_pty, events) = spawn(&shell(script).env("BRANCHBOARD_TEST", "from-env"), SIZE);
-    let (text, _) = output_until(&events, |_| false);
+    let (pty, events) = spawn(&shell(script).env("BRANCHBOARD_TEST", "from-env"), SIZE);
+    let (text, _) = output_until(&pty, &events, |_| false);
     assert!(text.contains("from-env"), "{text:?}");
 }
 
@@ -91,7 +103,7 @@ fn passes_the_environment() {
 fn input_reaches_the_program() {
     let (pty, events) = spawn(&shell("read line; printf 'got:%s' \"$line\""), SIZE);
     pty.write(b"ping\r").unwrap();
-    let (text, _) = output_until(&events, |text| text.contains("got:ping"));
+    let (text, _) = output_until(&pty, &events, |text| text.contains("got:ping"));
     assert!(text.contains("got:ping"), "{text:?}");
 }
 
@@ -105,7 +117,7 @@ fn resizing_reaches_the_program() {
     })
     .unwrap();
     pty.write(b"\r").unwrap();
-    let (text, _) = output_until(&events, |text| text.contains("30 100"));
+    let (text, _) = output_until(&pty, &events, |text| text.contains("30 100"));
     assert!(text.contains("30 100"), "{text:?}");
 }
 
@@ -119,7 +131,7 @@ fn kill_ends_the_program() {
     let (pty, events) = spawn(&shell(script), SIZE);
     std::thread::sleep(Duration::from_millis(200));
     pty.kill();
-    let (_, exit) = output_until(&events, |_| false);
+    let (_, exit) = output_until(&pty, &events, |_| false);
     assert!(matches!(exit, Ended::Exited(_)));
     assert!(matches!(pty.write(b"x"), Err(PtyError::Closed)));
 }
