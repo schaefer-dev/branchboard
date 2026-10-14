@@ -1,6 +1,7 @@
 // Starting states for the fake backend, selected with `?scenario=<name>`.
 
 import type {
+  AgentsSnapshot,
   BranchCommits,
   BranchList,
   FileDiff,
@@ -69,7 +70,11 @@ export interface Scenario {
   branches: Record<string, BranchList>;
   /** Keyed by repo id, then branch name. */
   commits: Record<string, Record<string, BranchCommits>>;
+  /** What herdr reports; unavailable unless a scenario runs herdr. */
+  agents: AgentsSnapshot;
 }
+
+const noHerdr = (): AgentsSnapshot => ({ available: false, repos: [] });
 
 function repo(id: string, name: string, extra: Partial<RepoView> = {}): RepoView {
   return {
@@ -144,6 +149,49 @@ function defaultScenario(): Scenario {
       dotfiles: singleBranch("main"),
     },
     commits: { api: structuredClone(recordedBranches.commits) },
+    agents: noHerdr(),
+  };
+}
+
+/** The default workspace with agents running in herdr. */
+function agentsScenario(): Scenario {
+  return {
+    ...defaultScenario(),
+    agents: {
+      available: true,
+      repos: [
+        {
+          repoId: "api",
+          state: "blocked",
+          agents: [
+            { paneId: "w1:p2", agent: "codex", state: "blocked", title: "Add rate limit headers" },
+            {
+              paneId: "w1:p1",
+              agent: "claude",
+              state: "working",
+              title: "Refactor the login handler",
+            },
+          ],
+        },
+        {
+          repoId: "web",
+          state: "done",
+          agents: [
+            { paneId: "w2:p1", agent: "claude", state: "done", title: "Fix the login form" },
+          ],
+        },
+        {
+          repoId: "infra",
+          state: "working",
+          agents: [{ paneId: "w3:p1", agent: "claude", state: "working", title: null }],
+        },
+        {
+          repoId: "dotfiles",
+          state: "idle",
+          agents: [{ paneId: "w4:p1", agent: "claude", state: "idle", title: null }],
+        },
+      ],
+    },
   };
 }
 
@@ -160,10 +208,12 @@ function emptyScenario(): Scenario {
     summaries: {},
     branches: {},
     commits: {},
+    agents: noHerdr(),
   };
 }
 
 export const scenarios: Record<string, () => Scenario> = {
   default: defaultScenario,
   empty: emptyScenario,
+  agents: agentsScenario,
 };

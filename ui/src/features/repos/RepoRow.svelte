@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { RepoView, SummaryState } from "../../lib/api";
+  import { agents } from "../../lib/state/agents.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
+  import AgentBadge from "../agents/AgentBadge.svelte";
   import { showRepoMenu } from "./repo-actions";
   import { summaryText } from "./summary-text";
 
@@ -16,6 +18,7 @@
   const dirty = $derived(summary?.status === "ready" && summary.summary.dirty);
   const missing = $derived(repo.missing || summary?.status === "missing");
   const detail = $derived(summary?.status === "failed" ? summary.message : repo.path);
+  const repoAgents = $derived(agents.of(repo.id));
 </script>
 
 <button
@@ -35,6 +38,9 @@
   }}
 >
   <span class="name">{repo.name}</span>
+  {#if repoAgents}
+    <span class="agents"><AgentBadge agents={repoAgents} /></span>
+  {/if}
   {#if dirty}
     <span class="dirty" title="Uncommitted changes"></span>
   {/if}
@@ -45,10 +51,11 @@
   .row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* The dot column keeps its width, so agent badges line up. */
+    grid-template-columns: minmax(0, 1fr) auto 7px;
     grid-template-areas:
-      "name dirty"
-      "meta meta";
+      "name agents dirty"
+      "meta meta meta";
     align-items: center;
     column-gap: var(--space-3);
     width: 100%;
@@ -96,6 +103,11 @@
     font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .agents {
+    display: flex;
+    grid-area: agents;
   }
 
   .dirty {

@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use herdr::{Endpoint, HerdrLink};
 use tauri::{Manager, Runtime, WindowEvent};
 use tracing_subscriber::EnvFilter;
 use workspace::Workspace;
@@ -30,6 +31,9 @@ pub struct AppOptions {
     pub workspace_file: Option<PathBuf>,
     /// Editor command to use instead of the detected VS Code launcher.
     pub editor: Option<PathBuf>,
+    /// Socket of the herdr session to use instead of the one herdr's own
+    /// environment variables and config directory point at.
+    pub herdr_socket: Option<PathBuf>,
 }
 
 /// Starts the application and blocks until it exits.
@@ -44,6 +48,7 @@ pub fn run() {
     let options = AppOptions {
         workspace_file: std::env::var_os("BRANCHBOARD_WORKSPACE_FILE").map(PathBuf::from),
         editor: std::env::var_os("BRANCHBOARD_EDITOR").map(PathBuf::from),
+        herdr_socket: None,
     };
     build(tauri::Builder::default(), options)
         .run(tauri::generate_context!())
@@ -63,9 +68,14 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             tracing::info!(file = %file.display(), "opening workspace");
             let events = Arc::new(TauriEvents(app.handle().clone()));
             let version = app.package_info().version.to_string();
+            let herdr_endpoint = match options.herdr_socket.clone() {
+                Some(socket) => Some(Endpoint::new(socket)),
+                None => Endpoint::from_env(),
+            };
             let state = AppState::new(
                 version,
-                Workspace::open(file, events),
+                Workspace::open(file, events.clone()),
+                HerdrLink::new(herdr_endpoint, events),
                 options.editor.clone(),
             );
             app.manage(state.clone());
@@ -96,6 +106,9 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
                 let state = window.state::<AppState>();
                 state.set_focused(*focused);
                 if *focused {
+                    // herdr may have been started (or restarted) meanwhile.
+                    let herdr = state.herdr.clone();
+                    tauri::async_runtime::spawn(async move { herdr.connect().await });
                     state.workspace.refresh_status();
                     state.spawn_background_fetch();
                     if state.take_focus_refresh() {
@@ -132,6 +145,8 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::fetch_repo,
             commands::set_mainline,
             commands::set_fetch_interval,
+            commands::get_agents,
+            commands::open_in_herdr,
         ])
 }
 

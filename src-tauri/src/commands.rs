@@ -13,9 +13,9 @@ use git_core::{BranchList, DiffRequest, FileDiff, StatusSnapshot};
 use tauri::State;
 use workspace::{Added, BranchCommits, GroupId, RepoId, WorkspaceSnapshot};
 
-use crate::dto::{AddRepoResult, AppInfo, GitInfo};
+use crate::dto::{AddRepoResult, AgentsSnapshot, AppInfo, GitInfo};
 use crate::error::AppError;
-use crate::state::AppState;
+use crate::state::{AppState, repo_matcher};
 
 type CommandResult<T> = Result<T, AppError>;
 
@@ -49,6 +49,7 @@ pub async fn add_repo(state: State<'_, AppState>, path: PathBuf) -> CommandResul
         Added::Existing(id) => (id, true),
     };
     state.spawn_summary_refresh(Some(repo_id.clone()));
+    state.herdr.republish();
     Ok(AddRepoResult {
         workspace,
         repo_id,
@@ -65,6 +66,7 @@ pub async fn relocate_repo(
     let git = state.git().await?;
     let workspace = state.workspace.relocate_repo(git, &repo_id, &path).await?;
     state.spawn_summary_refresh(Some(repo_id));
+    state.herdr.republish();
     Ok(workspace)
 }
 
@@ -73,7 +75,9 @@ pub async fn remove_repo(
     state: State<'_, AppState>,
     repo_id: RepoId,
 ) -> CommandResult<WorkspaceSnapshot> {
-    update(&state, |registry| registry.remove_repo(&repo_id)).await
+    let workspace = update(&state, |registry| registry.remove_repo(&repo_id)).await?;
+    state.herdr.republish();
+    Ok(workspace)
 }
 
 #[tauri::command]
@@ -318,4 +322,28 @@ async fn update(
 ) -> CommandResult<WorkspaceSnapshot> {
     let ((), snapshot) = state.workspace.update(change).await?;
     Ok(snapshot)
+}
+
+/// The coding agents per repository. Connects to herdr first if needed;
+/// later changes arrive as `repo-agents` events.
+#[tauri::command]
+pub async fn get_agents(state: State<'_, AppState>) -> CommandResult<AgentsSnapshot> {
+    state.herdr.connect().await;
+    Ok(state.agents().await)
+}
+
+/// Shows the repository's herdr workspace, or creates one in it.
+#[tauri::command]
+pub async fn open_in_herdr(state: State<'_, AppState>, repo_id: RepoId) -> CommandResult<()> {
+    let workspace = state.workspace.snapshot().await;
+    let repo = workspace
+        .repos
+        .iter()
+        .find(|repo| repo.id == repo_id)
+        .ok_or(workspace::WorkspaceError::RepoNotFound)?;
+    state
+        .herdr
+        .open(&repo_matcher(&workspace), &repo_id, &repo.name)
+        .await?;
+    Ok(())
 }

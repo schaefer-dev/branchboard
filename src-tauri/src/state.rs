@@ -4,11 +4,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use git_core::{DiscoveryOptions, Git};
+use herdr::{HerdrLink, RepoMatcher};
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
 
-use workspace::{Editor, RepoId, Workspace, WorkspaceError};
+use workspace::{Editor, RepoId, Workspace, WorkspaceError, WorkspaceSnapshot};
 
+use crate::dto::{AgentsSnapshot, RepoAgents};
 use crate::error::AppError;
 
 /// Window focus refreshes all summaries, but at most this often.
@@ -22,6 +24,10 @@ pub struct AppState(Arc<Inner>);
 pub struct Inner {
     pub app_version: String,
     pub workspace: Workspace,
+    pub herdr: HerdrLink,
+    /// The agents last sent to the frontend. Held while computing and
+    /// sending the next ones, so updates cannot overtake each other.
+    agents: tokio::sync::Mutex<Option<AgentsSnapshot>>,
     git: OnceCell<Result<Git, AppError>>,
     last_focus_refresh: Mutex<Option<Instant>>,
     /// Background fetches only happen while the window has focus.
@@ -41,11 +47,14 @@ impl AppState {
     pub fn new(
         app_version: String,
         workspace: Workspace,
+        herdr: HerdrLink,
         editor_override: Option<PathBuf>,
     ) -> Self {
         Self(Arc::new(Inner {
             app_version,
             workspace,
+            herdr,
+            agents: tokio::sync::Mutex::new(None),
             git: OnceCell::new(),
             last_focus_refresh: Mutex::new(None),
             focused: AtomicBool::new(true),
@@ -115,6 +124,52 @@ impl Inner {
             .ok_or_else(|| WorkspaceError::EditorNotFound.into())
     }
 
+    /// The agents of every repository, from the last herdr session.
+    pub async fn agents(&self) -> AgentsSnapshot {
+        let mut last = self.agents.lock().await;
+        let agents = self.current_agents().await;
+        last.replace(agents.clone());
+        agents
+    }
+
+    /// Calls `send` with the agents of every repository if they changed
+    /// since they were last sent or returned.
+    pub async fn publish_agents(&self, send: impl FnOnce(&AgentsSnapshot)) {
+        let mut last = self.agents.lock().await;
+        let agents = self.current_agents().await;
+        if last.as_ref() != Some(&agents) {
+            send(&agents);
+            last.replace(agents);
+        }
+    }
+
+    async fn current_agents(&self) -> AgentsSnapshot {
+        let Some(session) = self.herdr.session() else {
+            return AgentsSnapshot {
+                available: false,
+                repos: Vec::new(),
+            };
+        };
+        let snapshot = self.workspace.snapshot().await;
+        let mut found = session.repo_agents(&repo_matcher(&snapshot));
+        let repos = snapshot
+            .repos
+            .into_iter()
+            .filter_map(|repo| {
+                let agents = found.remove(&repo.id)?;
+                Some(RepoAgents {
+                    repo_id: repo.id,
+                    state: agents.state,
+                    agents: agents.agents,
+                })
+            })
+            .collect();
+        AgentsSnapshot {
+            available: true,
+            repos,
+        }
+    }
+
     /// Whether a focus-triggered refresh is due; records it if so.
     pub fn take_focus_refresh(&self) -> bool {
         let mut last = self
@@ -127,4 +182,14 @@ impl Inner {
         }
         due
     }
+}
+
+/// Locates directories in the repositories of `snapshot`.
+pub fn repo_matcher(snapshot: &WorkspaceSnapshot) -> RepoMatcher<RepoId> {
+    RepoMatcher::new(
+        snapshot
+            .repos
+            .iter()
+            .map(|repo| (repo.id.clone(), PathBuf::from(&repo.path))),
+    )
 }

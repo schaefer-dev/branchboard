@@ -2,10 +2,12 @@
 // menus all run these.
 
 import { commands } from "../../lib/commands";
+import { agents } from "../../lib/state/agents.svelte";
 import { branches } from "../../lib/state/branches.svelte";
 import { changes } from "../../lib/state/changes.svelte";
 import { view } from "../../lib/state/view.svelte";
 import { workspace } from "../../lib/state/workspace.svelte";
+import { openRepoInHerdr } from "../agents/open-in-herdr";
 import { chooseMainline } from "../branches/branch-actions";
 import { openCurrentInEditor } from "../editor/open-in-editor";
 import { addRepositories, newGroup, removeRepo, renameRepo } from "../repos/repo-actions";
@@ -73,6 +75,16 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       shortcut: { key: "e", mod: true, shift: true },
       enabled: () => usableRepo() !== null,
       run: openCurrentInEditor,
+    }),
+    commands.register({
+      id: "herdr.open",
+      title: "Open in herdr",
+      shortcut: { key: "t", mod: true, shift: true },
+      enabled: () => agents.available && usableRepo() !== null,
+      run: () => {
+        const repo = usableRepo();
+        if (repo) void openRepoInHerdr(repo);
+      },
     }),
     commands.register({
       id: "changes.stageAll",

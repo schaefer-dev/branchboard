@@ -33,6 +33,12 @@
   --color-danger: #b3403a;
   --color-modified: #3d6fd1;
 
+  /* Coding agents (herdr): only "needs you" and "done" stand out. */
+  --color-agent-blocked: var(--color-danger);
+  --color-agent-done: var(--color-added);
+  --color-agent-working: var(--color-modified);
+  --color-agent-idle: var(--color-text-faint);
+
   /* Syntax: muted, distinct hues that stay readable on the diff tints. */
   --syntax-comment: #7d8592;
   --syntax-keyword: #7a3fb0;

@@ -12,6 +12,7 @@
   import StatusBar from "./features/shell/StatusBar.svelte";
   import WorkPane from "./features/shell/WorkPane.svelte";
   import { commands } from "./lib/commands";
+  import { agents } from "./lib/state/agents.svelte";
   import { appInfo } from "./lib/state/app-info.svelte";
   import { branches } from "./lib/state/branches.svelte";
   import { changes } from "./lib/state/changes.svelte";
@@ -27,9 +28,11 @@
 
   onMount(() => {
     void appInfo.load();
-    Promise.all([changes.init(), branches.init(), workspace.init()]).catch((error: unknown) => {
-      notices.error(error);
-    });
+    Promise.all([changes.init(), branches.init(), workspace.init(), agents.init()]).catch(
+      (error: unknown) => {
+        notices.error(error);
+      },
+    );
 
     const unregister = registerAppCommands({
       openSwitcher: () => (switcherOpen = true),

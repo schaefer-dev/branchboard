@@ -4,6 +4,7 @@
 
 import { call } from "./client";
 import type { AddRepoResult } from "./generated/AddRepoResult";
+import type { AgentsSnapshot } from "./generated/AgentsSnapshot";
 import type { AppInfo } from "./generated/AppInfo";
 import type { BranchCommits } from "./generated/BranchCommits";
 import type { BranchList } from "./generated/BranchList";
@@ -62,4 +63,7 @@ export const api = {
   setMainline: (repoId: RepoId, mainline: string | null) =>
     call<WorkspaceSnapshot>("set_mainline", { repoId, mainline }),
   setFetchInterval: (minutes: number) => call<WorkspaceSnapshot>("set_fetch_interval", { minutes }),
+
+  getAgents: () => call<AgentsSnapshot>("get_agents"),
+  openInHerdr: (repoId: RepoId) => call<null>("open_in_herdr", { repoId }),
 } as const;

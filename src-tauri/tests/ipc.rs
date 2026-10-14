@@ -20,14 +20,21 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
-        Self::with_editor(None)
+        Self::with_options(None, None)
     }
 
     fn with_editor(editor: Option<PathBuf>) -> Self {
+        Self::with_options(editor, None)
+    }
+
+    /// `herdr_socket` defaults to a socket nobody listens on, so tests never
+    /// reach the developer's own herdr session.
+    fn with_options(editor: Option<PathBuf>, herdr_socket: Option<PathBuf>) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let options = AppOptions {
             workspace_file: Some(dir.path().join("workspace.json")),
             editor,
+            herdr_socket: Some(herdr_socket.unwrap_or_else(|| dir.path().join("herdr.sock"))),
         };
         // The app's real context, so the real capabilities (ACL) apply.
         let mut app = build(mock_builder(), options)
@@ -710,4 +717,176 @@ fn opens_files_in_the_editor() {
         repo.join("src").join("main.rs").display()
     );
     assert_eq!(args, expected);
+}
+
+/// A herdr server answering from a fixed session snapshot; records the
+/// requests it gets.
+struct FakeHerdr {
+    socket: PathBuf,
+    requests: std::sync::Arc<std::sync::Mutex<Vec<Value>>>,
+    _dir: TempDir,
+}
+
+impl FakeHerdr {
+    fn start(snapshot: Value) -> Self {
+        use interprocess::local_socket::ListenerOptions;
+        use interprocess::local_socket::prelude::*;
+        use std::io::{BufRead, BufReader, Write};
+
+        // Unix socket paths are limited to ~100 bytes; macOS temp dirs are long.
+        let dir = if cfg!(unix) {
+            tempfile::Builder::new().tempdir_in("/tmp").unwrap()
+        } else {
+            tempfile::tempdir().unwrap()
+        };
+        let socket = dir.path().join("herdr.sock");
+        #[cfg(unix)]
+        let name = {
+            use interprocess::local_socket::{GenericFilePath, ToFsName as _};
+            socket.clone().to_fs_name::<GenericFilePath>().unwrap()
+        };
+        #[cfg(windows)]
+        let name = {
+            use interprocess::local_socket::{GenericNamespaced, ToNsName as _};
+            socket
+                .to_string_lossy()
+                .into_owned()
+                .to_ns_name::<GenericNamespaced>()
+                .unwrap()
+        };
+        let listener = ListenerOptions::new().name(name).create_sync().unwrap();
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = std::sync::Arc::clone(&requests);
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let (snapshot, log) = (snapshot.clone(), std::sync::Arc::clone(&log));
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(&stream);
+                    let mut line = String::new();
+                    while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                        let request: Value = serde_json::from_str(&line).unwrap();
+                        line.clear();
+                        let result = match request["method"].as_str().unwrap() {
+                            "session.snapshot" => {
+                                json!({ "type": "session_snapshot", "snapshot": snapshot })
+                            }
+                            "events.subscribe" => json!({ "type": "subscription_started" }),
+                            "workspace.create" => json!({ "workspace": { "workspace_id": "w9" } }),
+                            _ => json!({ "type": "ok" }),
+                        };
+                        let response = json!({ "id": request["id"], "result": result });
+                        log.lock().unwrap().push(request);
+                        (&stream)
+                            .write_all(format!("{response}\n").as_bytes())
+                            .unwrap();
+                    }
+                });
+            }
+        });
+        Self {
+            socket,
+            requests,
+            _dir: dir,
+        }
+    }
+
+    fn requests(&self, method: &str) -> Vec<Value> {
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request["method"] == method)
+            .map(|request| request["params"].clone())
+            .collect()
+    }
+}
+
+#[test]
+fn reports_agents_unavailable_without_herdr() {
+    let harness = Harness::new();
+    let repo_id = harness.add(&harness.repo("api"));
+    assert_eq!(
+        harness.ok("get_agents", json!({})),
+        json!({ "available": false, "repos": [] })
+    );
+    let error = harness
+        .invoke("open_in_herdr", json!({ "repoId": repo_id }))
+        .unwrap_err();
+    assert_eq!(error["kind"], "herdrUnavailable");
+}
+
+#[test]
+fn reports_agents_and_opens_workspaces_in_herdr() {
+    // The repositories must exist before the snapshot can name their paths.
+    let repos = tempfile::tempdir().unwrap();
+    let api = repos.path().join("api");
+    let docs = repos.path().join("docs");
+    for path in [&api, &docs] {
+        std::fs::create_dir_all(path).unwrap();
+        git(path, &["init", "--quiet", "--initial-branch=development"]);
+    }
+    let api = api.canonicalize().unwrap();
+    let api_src = api.join("src");
+    let fake = FakeHerdr::start(json!({
+        "version": "0.9.3",
+        "protocol": 22,
+        "workspaces": [{ "workspace_id": "w1", "number": 1, "label": "api" }],
+        "panes": [
+            { "pane_id": "w1:p1", "workspace_id": "w1", "cwd": api },
+            { "pane_id": "w1:p2", "workspace_id": "w1", "cwd": api_src },
+        ],
+        "agents": [
+            {
+                "pane_id": "w1:p2", "workspace_id": "w1", "agent": "claude",
+                "agent_status": "blocked", "cwd": api_src,
+                "terminal_title_stripped": "Fix the login form",
+            },
+            { "pane_id": "w1:p1", "workspace_id": "w1", "agent": "codex", "agent_status": "working", "cwd": api },
+        ],
+    }));
+
+    let harness = Harness::with_options(None, Some(fake.socket.clone()));
+    let api_id = harness.add(&api);
+    let docs_id = harness.add(&docs);
+
+    let agents = harness.ok("get_agents", json!({}));
+    assert_eq!(
+        agents,
+        json!({
+            "available": true,
+            "repos": [{
+                "repoId": api_id,
+                "state": "blocked",
+                "agents": [
+                    { "paneId": "w1:p2", "agent": "claude", "state": "blocked", "title": "Fix the login form" },
+                    { "paneId": "w1:p1", "agent": "codex", "state": "working", "title": null },
+                ],
+            }],
+        })
+    );
+    assert_eq!(fake.requests("events.subscribe").len(), 1);
+
+    assert_eq!(
+        harness.ok("open_in_herdr", json!({ "repoId": api_id })),
+        Value::Null
+    );
+    assert_eq!(
+        fake.requests("workspace.focus"),
+        [json!({ "workspace_id": "w1" })]
+    );
+
+    harness.ok("open_in_herdr", json!({ "repoId": docs_id }));
+    // The path as registered (Windows canonical paths differ in form).
+    let workspace = harness.ok("get_workspace", json!({}));
+    let docs_path = workspace["repos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|repo| repo["id"] == docs_id.as_str())
+        .unwrap()["path"]
+        .clone();
+    assert_eq!(
+        fake.requests("workspace.create"),
+        [json!({ "cwd": docs_path, "label": "docs", "focus": true })]
+    );
 }

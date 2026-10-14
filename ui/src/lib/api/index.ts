@@ -1,8 +1,11 @@
 export { api } from "./commands";
 export { CommandError, toAppError } from "./client";
-export { onRepoFetch, onRepoStatus, onRepoSummary } from "./events";
+export { onRepoAgents, onRepoFetch, onRepoStatus, onRepoSummary } from "./events";
 
 export type { AddRepoResult } from "./generated/AddRepoResult";
+export type { AgentsSnapshot } from "./generated/AgentsSnapshot";
+export type { AgentState } from "./generated/AgentState";
+export type { AgentSummary } from "./generated/AgentSummary";
 export type { AheadBehind } from "./generated/AheadBehind";
 export type { Branch } from "./generated/Branch";
 export type { BranchCommits } from "./generated/BranchCommits";
@@ -27,6 +30,7 @@ export type { GitVersion } from "./generated/GitVersion";
 export type { Group } from "./generated/Group";
 export type { GroupId } from "./generated/GroupId";
 export type { Head } from "./generated/Head";
+export type { RepoAgents } from "./generated/RepoAgents";
 export type { RepoId } from "./generated/RepoId";
 export type { RepoSummary } from "./generated/RepoSummary";
 export type { RepoView } from "./generated/RepoView";

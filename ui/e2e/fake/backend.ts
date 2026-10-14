@@ -7,6 +7,7 @@ import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
 import type {
+  AgentsSnapshot,
   AppError,
   BranchList,
   ChangeKind,
@@ -188,6 +189,14 @@ export class FakeBackend {
       case "set_fetch_interval":
         workspace.settings.fetchIntervalMinutes = Number(args.minutes);
         return this.snapshot();
+      case "get_agents":
+        return structuredClone(this.state.agents);
+      case "open_in_herdr":
+        this.repo(args.repoId);
+        if (!this.state.agents.available) {
+          fail("herdrUnavailable", "herdr is not running. Start herdr and try again.");
+        }
+        return null;
       case "plugin:dialog|open":
         return this.pickedFolders.length > 0 ? this.pickedFolders : null;
       case "plugin:dialog|message": {
@@ -228,6 +237,10 @@ export class FakeBackend {
         const position = { x: 100, y: 100 };
         await emit("tauri://drag-enter", { paths, position });
         await emit("tauri://drag-drop", { paths, position });
+      },
+      setAgents: async (agents: AgentsSnapshot) => {
+        this.state.agents = agents;
+        await emit("repo-agents", agents);
       },
       replaceStatus: async (repoId, unstagedPaths) => {
         const status = this.status(repoId);

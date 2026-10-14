@@ -49,6 +49,15 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "missing-repository", scheme);
     });
 
+    test("agents", async ({ page }, info) => {
+      await openApp(page, "agents");
+      await expect(sidebar(page).locator('[data-repo-id="api"]').getByRole("img")).toHaveAttribute(
+        "data-state",
+        "blocked",
+      );
+      await capture(page, info.project.name, "agents", scheme);
+    });
+
     test("empty workspace", async ({ page }, info) => {
       await openApp(page, "empty");
       await expect(page.getByText("No repositories yet")).toBeVisible();

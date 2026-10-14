@@ -1,4 +1,5 @@
 use git_core::GitError;
+use herdr::HerdrError;
 use serde::Serialize;
 use ts_rs::TS;
 use workspace::WorkspaceError;
@@ -27,6 +28,10 @@ pub enum AppErrorKind {
     NotFound,
     InvalidInput,
     EditorNotFound,
+    /// No herdr session is running.
+    HerdrUnavailable,
+    /// herdr is running but the request failed.
+    HerdrFailed,
     Io,
     /// Unexpected failures, e.g. a rejected IPC call or a crashed task.
     Internal,
@@ -122,5 +127,15 @@ impl From<WorkspaceError> for AppError {
             }
             WorkspaceError::EditorNotFound => Self::new(Kind::EditorNotFound, message, None),
         }
+    }
+}
+
+impl From<HerdrError> for AppError {
+    fn from(error: HerdrError) -> Self {
+        let kind = match error {
+            HerdrError::NotRunning => AppErrorKind::HerdrUnavailable,
+            _ => AppErrorKind::HerdrFailed,
+        };
+        Self::new(kind, error.to_string(), error.detail())
     }
 }

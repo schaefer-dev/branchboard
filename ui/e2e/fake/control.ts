@@ -1,5 +1,7 @@
 // The API the fake backend exposes to Playwright as `window.__fake`.
 
+import type { AgentsSnapshot } from "../../src/lib/api";
+
 export interface RecordedCall {
   cmd: string;
   args: Record<string, unknown>;
@@ -20,6 +22,8 @@ export interface FakeControl {
   drop(paths: string[]): Promise<void>;
   /** Makes the next branch switch or fetch fail with git's `stderr`. */
   failNext(command: "switch_branch" | "fetch_repo", stderr: string): void;
+  /** Replaces what herdr reports, as when an agent changes state. */
+  setAgents(agents: AgentsSnapshot): Promise<void>;
   /** Simulates an external change to the working tree of a repository. */
   replaceStatus(repoId: string, unstagedPaths: string[]): Promise<void>;
 }

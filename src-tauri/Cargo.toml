@@ -18,6 +18,7 @@ tauri-build.workspace = true
 
 [dependencies]
 git-core.workspace = true
+herdr.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true
@@ -29,6 +30,7 @@ ts-rs.workspace = true
 workspace.workspace = true
 
 [dev-dependencies]
+interprocess.workspace = true
 serde_json.workspace = true
 tauri = { workspace = true, features = ["test"] }
 tempfile.workspace = true

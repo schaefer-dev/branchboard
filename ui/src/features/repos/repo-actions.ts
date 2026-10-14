@@ -4,8 +4,10 @@
 import type { Group, RepoView } from "../../lib/api";
 import { confirmDestructive, pickFolders } from "../../lib/platform/dialogs";
 import { showContextMenu, type MenuEntry } from "../../lib/platform/menu";
+import { agents } from "../../lib/state/agents.svelte";
 import { workspace } from "../../lib/state/workspace.svelte";
 import { prompts } from "../../lib/ui/prompt.svelte";
+import { openRepoInHerdr } from "../agents/open-in-herdr";
 import { chooseMainline } from "../branches/branch-actions";
 import { openRepoInEditor } from "../editor/open-in-editor";
 
@@ -91,6 +93,16 @@ export function showRepoMenu(repo: RepoView): Promise<void> {
       enabled: !repo.missing,
       run: () => void openRepoInEditor(repo),
     },
+    ...(agents.available
+      ? [
+          {
+            kind: "item",
+            text: "Open in herdr",
+            enabled: !repo.missing,
+            run: () => void openRepoInHerdr(repo),
+          } as const,
+        ]
+      : []),
     { kind: "separator" },
     { kind: "item", text: "Rename…", run: () => void renameRepo(repo) },
     {

@@ -7,6 +7,7 @@
     fetch: "M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10",
     more: "M3.5 8h.01M8 8h.01M12.5 8h.01",
     external: "M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5",
+    agent: "M3 4.5 6.5 8 3 11.5M8.5 11.5H13",
   } as const;
 
   interface Props {
