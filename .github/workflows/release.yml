@@ -3,17 +3,25 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build or retry (e.g. v0.1.0)
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   check:
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
   prepare:
     name: Prepare draft release
@@ -25,10 +33,12 @@ jobs:
       release-id: ${{ steps.release.outputs.release-id }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - name: Check tag matches the app version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           python3 - <<'PY'
           import json, os, tomllib
@@ -45,7 +55,7 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
             python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1]))["isDraft"] else "Refusing to change a published release")' "$RUNNER_TEMP/release.json"
@@ -54,7 +64,8 @@ jobs:
               --title "Branchboard $RELEASE_TAG" --generate-notes \
               --notes-file .github/release-notes.md
           fi
-          release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)
+          # The REST lookup by tag does not find drafts; the CLI also searches drafts.
+          release_id=$(gh release view "$RELEASE_TAG" --json databaseId --jq .databaseId)
           echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
 
   build:
@@ -78,6 +89,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - uses: pnpm/action-setup@v6
 
@@ -113,7 +126,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           releaseId: ${{ needs.prepare.outputs.release-id }}
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ inputs.tag || github.ref_name }}
           releaseDraft: true
           uploadUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
