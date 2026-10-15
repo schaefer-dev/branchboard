@@ -64,6 +64,10 @@ show a warning. Code signing and automatic updates are not currently configured.
 - **Optional:** [herdr](https://herdr.dev) for the agent features (tested with 0.9.3).
 - **Optional:** VS Code for the editor integration.
 
+On Windows, run Rust commands from a Developer PowerShell or x64 Native Tools
+Command Prompt for Visual Studio so the MSVC compiler, linker, and SDK are available.
+Git for Windows also includes a `link.exe`, which is not the MSVC linker.
+
 ### Run locally
 
 ```sh
@@ -138,6 +142,8 @@ side-by-side diffs, a history graph, or conflict resolution.
 For end-to-end tests, install the browser runtimes once with
 `pnpm exec playwright install chromium webkit`. Screenshot tests write review artifacts to
 `e2e-results/screenshots/`. CI checks and builds the app on macOS and Windows.
+If you use a custom browser cache, set `PLAYWRIGHT_BROWSERS_PATH` to the same directory
+when installing browsers and running the tests.
 
 Set `BRANCHBOARD_WORKSPACE_FILE` to an absolute path to a separate JSON file when developing
 or testing with a different repository list. This keeps that workspace separate from your

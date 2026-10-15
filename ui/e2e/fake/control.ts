@@ -24,6 +24,10 @@ export interface FakeControl {
   drop(paths: string[]): Promise<void>;
   /** Makes the next branch switch, fetch or commit fail with git's `stderr`. */
   failNext(command: "switch_branch" | "fetch_repo" | "commit", stderr: string): void;
+  /** Holds the next fetch in its running state until `releaseFetch` is called. */
+  holdNextFetch(): void;
+  /** Completes the held fetch, including any failure configured with `failNext`. */
+  releaseFetch(): void;
   /** Everything typed into the embedded terminal since it opened. */
   terminalInput(): string;
   /** The size the terminal was opened with or last resized to. */

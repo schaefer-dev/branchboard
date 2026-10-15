@@ -103,19 +103,32 @@ test.describe("branches", () => {
   });
 
   test("fetches and reports when it happened", async ({ page }) => {
+    await page.evaluate(() => {
+      window.__fake.holdNextFetch();
+    });
     await page.getByRole("button", { name: "Fetch", exact: true }).click();
     await expect(page.getByText("Fetching…")).toBeVisible();
-    await expect(page.getByText("Fetched just now")).toBeVisible();
     await expectCall(page, "fetch_repo", { repoId: "api" });
+    await page.evaluate(() => {
+      window.__fake.releaseFetch();
+    });
+    await expect(page.getByText("Fetched just now")).toBeVisible();
+    await expect(page.getByText("Fetching…")).not.toBeVisible();
   });
 
   test("shows fetch failures", async ({ page }) => {
     await page.evaluate(() => {
+      window.__fake.holdNextFetch();
       window.__fake.failNext("fetch_repo", "fatal: Could not read from remote repository.");
     });
     await page.keyboard.press(`${await mod(page)}+Shift+f`);
+    await expect(page.getByText("Fetching…")).toBeVisible();
+    await page.evaluate(() => {
+      window.__fake.releaseFetch();
+    });
     await expect(page.getByText("Fetching failed.")).toBeVisible();
     await expect(page.getByText("Last fetch failed")).toBeVisible();
+    await expect(page.getByText("Fetching…")).not.toBeVisible();
   });
 
   test("compares with origin/master where origin/development and origin/main do not exist", async ({

@@ -24,7 +24,10 @@ impl TestRepo {
     pub async fn init() -> Self {
         let repo = Self {
             git: git().await,
-            dir: tempfile::tempdir().unwrap(),
+            dir: tempfile::Builder::new()
+                .prefix("branchboard test ")
+                .tempdir()
+                .unwrap(),
         };
         repo.run(&["init", "--quiet", "--initial-branch=main"])
             .await;
@@ -35,9 +38,10 @@ impl TestRepo {
         repo
     }
 
-    /// The working tree root, canonicalized (macOS temp dirs are symlinked).
+    /// Resolves macOS temp-dir symlinks without Windows verbatim prefixes,
+    /// which Git would interpret as SSH addresses when used as local remotes.
     pub fn path(&self) -> PathBuf {
-        self.dir.path().canonicalize().unwrap()
+        dunce::canonicalize(self.dir.path()).unwrap()
     }
 
     pub async fn run(&self, args: &[&str]) -> String {

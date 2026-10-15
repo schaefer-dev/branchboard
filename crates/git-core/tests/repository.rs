@@ -13,7 +13,7 @@ async fn resolves_work_tree_from_a_subfolder() {
         .resolve_work_tree(&repo.path().join("nested/deeper"))
         .await
         .unwrap();
-    assert_eq!(resolved.canonicalize().unwrap(), repo.path());
+    assert_eq!(dunce::canonicalize(resolved).unwrap(), repo.path());
 }
 
 #[tokio::test]

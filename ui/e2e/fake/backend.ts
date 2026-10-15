@@ -72,6 +72,8 @@ export class FakeBackend {
   private confirm = true;
   private pickedFolders: string[] = [];
   private failures = new Map<string, string>();
+  private nextFetch: Promise<void> | null = null;
+  private finishFetch: (() => void) | null = null;
   /** What each commit made through the fake contains, for undoing it. */
   private committedFiles = new Map<string, FileChange[]>();
   private nextId = 1;
@@ -305,6 +307,21 @@ export class FakeBackend {
       failNext: (command, stderr) => {
         this.failures.set(command, stderr);
       },
+      holdNextFetch: () => {
+        if (this.nextFetch !== null || this.finishFetch !== null) {
+          throw new Error("A fetch is already held");
+        }
+        this.nextFetch = new Promise<void>((resolve) => {
+          this.finishFetch = resolve;
+        });
+      },
+      releaseFetch: () => {
+        if (this.nextFetch !== null || this.finishFetch === null) {
+          throw new Error("No held fetch is running");
+        }
+        this.finishFetch();
+        this.finishFetch = null;
+      },
       drop: async (paths) => {
         const position = { x: 100, y: 100 };
         await emit("tauri://drag-enter", { paths, position });
@@ -443,8 +460,10 @@ export class FakeBackend {
   }
 
   private async fetchRepo(repoId: string): Promise<BranchList> {
+    const completion = this.nextFetch;
+    this.nextFetch = null;
     await emit("repo-fetch", { repoId, state: { status: "running" } });
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await (completion ?? new Promise<void>((resolve) => setTimeout(resolve, 150)));
     const stderr = this.failures.get("fetch_repo");
     if (stderr !== undefined) {
       await emit("repo-fetch", {
