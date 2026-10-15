@@ -62,7 +62,9 @@
       theme: terminalTheme(),
       // Option composes characters (e.g. @ and [ on German layouts).
       macOptionIsMeta: false,
-      vtExtensions: { kittyKeyboard: true },
+      // ConPTY swallows herdr's kitty keyboard request and asks for
+      // win32-input-mode instead; without it Shift+Enter arrives as Enter.
+      vtExtensions: { kittyKeyboard: true, win32InputMode: true },
     });
     const fitAddon = new FitAddon();
     instance.loadAddon(fitAddon);

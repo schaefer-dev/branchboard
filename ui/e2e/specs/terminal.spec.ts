@@ -116,6 +116,18 @@ test.describe("embedded terminal", () => {
     await expect.poll(() => typed(page)).toBe("\r\x1b[13;2u\x1b[27u\x1b[98;5u");
   });
 
+  test("reports modified keys in win32-input-mode when ConPTY asks for it", async ({ page }) => {
+    await openApp(page, "agents");
+    await showTerminal(page);
+
+    // ConPTY drops herdr's kitty request and sends this instead (Windows).
+    await output(page, "\x1b[?9001h");
+    await page.keyboard.press("Shift+Enter");
+    // Vk;Sc;Uc;Kd;Cs;Rc – Shift+Enter down, then up, with the shift state.
+    await expect.poll(() => typed(page)).toContain("\x1b[13;28;13;1;16;1_");
+    await expect.poll(() => typed(page)).toContain("\x1b[13;28;13;0;16;1_");
+  });
+
   test("sends word jumps and pastes like a terminal", async ({ page }) => {
     await openApp(page, "agents");
     await showTerminal(page);
