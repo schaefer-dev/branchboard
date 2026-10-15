@@ -266,10 +266,32 @@ void test("runs a program in the embedded terminal", async () => {
     process.platform === "win32"
       ? `echo %HERDR_CONFIG_PATH%> "${marker}"`
       : `echo "$HERDR_CONFIG_PATH" > '${marker}'`;
-  await session.keys(command + Keys.enter);
-  const deadline = Date.now() + 15_000;
-  while (!existsSync(marker) || !readFileSync(marker, "utf8").includes("herdr-embedded.toml")) {
-    assert.ok(Date.now() < deadline, "the terminal did not run the command");
+  // The shell may still be starting when the text box appears, and the PTY
+  // can drop keystrokes until then. The command is idempotent, so type it
+  // again until the marker shows up. Escape clears a half-typed cmd.exe line.
+  const clear = process.platform === "win32" ? Keys.escape : "";
+  const attempts: unknown[] = [];
+  const deadline = Date.now() + 60_000;
+  let nextTyping = 0;
+  for (;;) {
+    const content = existsSync(marker) ? readFileSync(marker, "utf8") : null;
+    if (content?.includes("herdr-embedded.toml")) break;
+    if (Date.now() > deadline) {
+      writeFileSync(
+        join(diagnostics, "terminal.json"),
+        JSON.stringify({ marker, content, attempts, root: readdirSync(root) }, null, 2),
+      );
+      assert.fail("the terminal did not run the command");
+    }
+    if (Date.now() >= nextTyping) {
+      const focus = await session.execute<string>(
+        `const a = document.activeElement;
+         return a ? a.tagName + "." + a.className : "none";`,
+      );
+      attempts.push({ at: new Date().toISOString(), focus, content });
+      await session.keys(clear + command + Keys.enter);
+      nextTyping = Date.now() + 5_000;
+    }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 });

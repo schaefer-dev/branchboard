@@ -4,7 +4,7 @@
 const ELEMENT = "element-6066-11e4-a52e-4f735466cecf";
 
 /** WebDriver key codes, see https://www.w3.org/TR/webdriver2/#keyboard-actions */
-export const Keys = { space: "", enter: "", arrowDown: "" } as const;
+export const Keys = { space: "", enter: "", arrowDown: "", escape: "" } as const;
 
 interface WebDriverResponse<T> {
   value: T;
