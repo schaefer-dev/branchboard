@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { FileDiff } from "../../lib/api";
-import { maxLineWidth, unifiedRows } from "./diff-rows";
+import type { ReviewComment } from "../../lib/state/comments-model";
+import { FILE_ANNOTATIONS, maxLineWidth, unifiedRows } from "./diff-rows";
 
 const diff: FileDiff = {
   notes: [],
@@ -36,6 +37,29 @@ describe("unifiedRows", () => {
     const rows = unifiedRows(diff);
     expect(rows.map((r) => r.kind)).toEqual(["hunk", "line", "line", "line"]);
     expect(new Set(rows.map((r) => r.key)).size).toBe(rows.length);
+  });
+
+  it("puts annotations below their line, and file annotations first", () => {
+    const comment: ReviewComment = {
+      id: "comment-1",
+      repoId: "api",
+      path: "a.txt",
+      source: "unstaged",
+      lines: null,
+      body: "Why?",
+      status: "pending",
+      outdated: false,
+    };
+    const rows = unifiedRows(
+      diff,
+      new Map([
+        [FILE_ANNOTATIONS, [{ kind: "comment", comment }]],
+        [1, [{ kind: "editor" }]],
+      ]),
+    );
+    expect(rows.map((r) => r.kind)).toEqual(["comment", "hunk", "line", "line", "editor", "line"]);
+    expect(rows[0]?.key).toBe("c:comment-1");
+    expect(rows.filter((r) => r.kind === "line").map((r) => r.index)).toEqual([0, 1, 2]);
   });
 });
 

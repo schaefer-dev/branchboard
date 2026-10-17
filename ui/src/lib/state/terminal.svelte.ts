@@ -14,6 +14,8 @@ export class TerminalStore {
   private sending: Promise<unknown> = Promise.resolve();
   /** The channel of the current client; older ones are ignored. */
   private channel: Channel<ArrayBuffer | TerminalExit> | null = null;
+  /** What the backend was last told about the terminal being on screen. */
+  private visible = false;
 
   async init(): Promise<void> {
     this.available = (await api.terminalInfo()).available;
@@ -51,6 +53,14 @@ export class TerminalStore {
   resize(cols: number, rows: number): void {
     if (this.status !== "running" && this.status !== "starting") return;
     this.sending = this.sending.then(() => api.terminalResize(cols, rows)).catch(() => undefined);
+  }
+
+  /** Tells the backend whether the terminal is on screen, so an agent the
+   * user watches there can stay silent. */
+  setVisible(visible: boolean): void {
+    if (visible === this.visible) return;
+    this.visible = visible;
+    void api.setTerminalVisible(visible).catch(() => undefined);
   }
 }
 

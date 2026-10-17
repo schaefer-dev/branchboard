@@ -4,13 +4,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use git_core::{DiscoveryOptions, Git};
-use herdr::{EmbeddedClient, HerdrLink, RepoMatcher};
+use herdr::{Alert, Attention, EmbeddedClient, HerdrLink, RepoMatcher, Session};
 use pty::PtyCommand;
 use std::path::PathBuf;
 use tokio::sync::OnceCell;
 
 use workspace::{Editor, RepoId, Workspace, WorkspaceError, WorkspaceSnapshot};
 
+use crate::alerts::{Alerts, Notice, Situation, Sound, decide, notice_title};
 use crate::dto::{AgentRow, AgentsSnapshot, RepoAgents};
 use crate::error::{AppError, AppErrorKind};
 use crate::terminal::Terminal;
@@ -41,10 +42,17 @@ pub struct Inner {
     focused: AtomicBool,
     editor_override: Option<PathBuf>,
     pub terminal: Terminal,
+    /// The right column shows the terminal (not the diff).
+    terminal_visible: AtomicBool,
     /// Where the embedded client's herdr config is written.
     terminal_config: PathBuf,
     /// Program to run instead of herdr in the terminal (tests).
     terminal_program: Option<PathBuf>,
+    /// Agents that came to need the user, and where alerts about them go.
+    attention: Mutex<Attention>,
+    /// When a check for due alerts is scheduled.
+    attention_check: Mutex<Option<Instant>>,
+    alerts: Arc<dyn Alerts>,
 }
 
 /// Paths that differ between the real app and tests.
@@ -52,6 +60,12 @@ pub struct Paths {
     pub editor: Option<PathBuf>,
     pub terminal_config: PathBuf,
     pub terminal_program: Option<PathBuf>,
+}
+
+/// How the app alerts about agents; tests record instead and skip the delay.
+pub struct Alerting {
+    pub alerts: Arc<dyn Alerts>,
+    pub delay: Duration,
 }
 
 impl Deref for AppState {
@@ -63,7 +77,13 @@ impl Deref for AppState {
 }
 
 impl AppState {
-    pub fn new(app_version: String, workspace: Workspace, herdr: HerdrLink, paths: Paths) -> Self {
+    pub fn new(
+        app_version: String,
+        workspace: Workspace,
+        herdr: HerdrLink,
+        paths: Paths,
+        alerting: Alerting,
+    ) -> Self {
         Self(Arc::new(Inner {
             app_version,
             workspace,
@@ -74,13 +94,102 @@ impl AppState {
             focused: AtomicBool::new(true),
             editor_override: paths.editor,
             terminal: Terminal::default(),
+            terminal_visible: AtomicBool::new(false),
             terminal_config: paths.terminal_config,
             terminal_program: paths.terminal_program,
+            attention: Mutex::new(Attention::new(alerting.delay)),
+            attention_check: Mutex::new(None),
+            alerts: alerting.alerts,
         }))
     }
 
     pub fn set_focused(&self, focused: bool) {
         self.focused.store(focused, Ordering::Relaxed);
+    }
+
+    pub fn set_terminal_visible(&self, visible: bool) {
+        self.terminal_visible.store(visible, Ordering::Relaxed);
+    }
+
+    /// Looks for agents in the current herdr session that came to need the
+    /// user, and alerts about them. A state must hold for a moment first, so
+    /// this schedules itself again for the next one that becomes due.
+    pub fn check_attention(&self) {
+        let session = self.herdr.session();
+        let (due, next) = {
+            let mut attention = lock(&self.attention);
+            let due = attention.observe(session.as_deref(), Instant::now());
+            (due, attention.next_due())
+        };
+        if let Some(next) = next {
+            let mut scheduled = lock(&self.attention_check);
+            if scheduled.is_none_or(|at| next < at) {
+                *scheduled = Some(next);
+                let state = self.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep_until(next.into()).await;
+                    {
+                        let mut scheduled = lock(&state.attention_check);
+                        if *scheduled == Some(next) {
+                            *scheduled = None;
+                        }
+                    }
+                    state.check_attention();
+                });
+            }
+        }
+        if let Some(session) = session
+            && !due.is_empty()
+        {
+            let state = self.clone();
+            tauri::async_runtime::spawn(async move { state.alert(&session, due).await });
+        }
+    }
+
+    /// Notifies about each agent and plays one sound for all of them, the
+    /// most urgent.
+    async fn alert(&self, session: &Session, due: Vec<Alert>) {
+        let settings = self.workspace.settings().await;
+        let snapshot = self.workspace.snapshot().await;
+        let agents = session.agent_list(&repo_matcher(&snapshot));
+        let window_focused = self.focused.load(Ordering::Relaxed);
+        let terminal_visible = self.terminal_visible.load(Ordering::Relaxed);
+        let mut sound: Option<Sound> = None;
+        for alert in due {
+            let Some((repo_id, agent)) = agents
+                .iter()
+                .find(|(_, agent)| agent.pane_id == alert.pane_id)
+            else {
+                continue;
+            };
+            let decision = decide(
+                alert.state,
+                Situation {
+                    window_focused,
+                    watching: window_focused
+                        && terminal_visible
+                        && session.shows_agent(&alert.pane_id),
+                },
+                &settings,
+            );
+            if decision.notify {
+                let place = repo_id
+                    .as_ref()
+                    .and_then(|id| snapshot.repos.iter().find(|repo| &repo.id == id))
+                    .map_or(agent.workspace.as_str(), |repo| repo.name.as_str());
+                self.alerts.notify(Notice {
+                    pane_id: alert.pane_id.clone(),
+                    title: notice_title(place, &agent.agent, alert.state),
+                    body: agent.title.clone(),
+                });
+            }
+            if sound != Some(Sound::NeedsInput) {
+                sound = decision.sound.or(sound);
+            }
+        }
+        if let Some(sound) = sound {
+            self.alerts.play(sound);
+        }
     }
 
     /// Fetches the repository on screen in the background if background
@@ -265,6 +374,12 @@ impl Inner {
         }
         due
     }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Locates directories in the repositories of `snapshot`.

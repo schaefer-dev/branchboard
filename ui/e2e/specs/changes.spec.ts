@@ -105,7 +105,7 @@ test.describe("changes and diffs", () => {
 
   test("unstages from the context menu", async ({ page }) => {
     await row(page, "staged:config.toml").click({ button: "right" });
-    await expect.poll(() => menu(page)).toEqual(["Open in VS Code", "Unstage"]);
+    await expect.poll(() => menu(page)).toEqual(["Open in VS Code", "Comment on file", "Unstage"]);
     await clickMenu(page, "Unstage");
     await expectCall(page, "unstage_paths", { repoId: "api", paths: ["config.toml"] });
   });

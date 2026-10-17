@@ -14,6 +14,8 @@ pub const REPO_SUMMARY: &str = "repo-summary";
 pub const REPO_STATUS: &str = "repo-status";
 pub const REPO_FETCH: &str = "repo-fetch";
 pub const REPO_AGENTS: &str = "repo-agents";
+/// The user clicked the notification about an agent; carries its pane id.
+pub const ALERT_OPENED: &str = "alert-opened";
 
 pub struct TauriEvents<R: Runtime>(pub AppHandle<R>);
 
@@ -23,7 +25,7 @@ impl<R: Runtime> TauriEvents<R> {
     }
 }
 
-fn emit<R: Runtime>(app: &AppHandle<R>, event: &str, payload: impl Serialize + Clone) {
+pub fn emit<R: Runtime>(app: &AppHandle<R>, event: &str, payload: impl Serialize + Clone) {
     if let Err(error) = app.emit(event, payload) {
         tracing::warn!(%error, event, "failed to emit event");
     }
@@ -52,6 +54,7 @@ impl<R: Runtime> HerdrSink for TauriEvents<R> {
             let Some(state) = app.try_state::<AppState>() else {
                 return;
             };
+            state.check_attention();
             state
                 .publish_agents(|agents| emit(&app, REPO_AGENTS, agents))
                 .await;

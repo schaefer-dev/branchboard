@@ -15,13 +15,14 @@
 //! events used here:
 //!
 //! - requests: `session.snapshot`, `events.subscribe`, `workspace.focus`,
-//!   `workspace.create`, `agent.focus`;
+//!   `workspace.create`, `agent.focus`, `pane.send_text`;
 //! - snapshot fields: see `session.rs`;
 //! - events: see `SESSION_EVENTS` and `pane.agent_status_changed` in
 //!   `link.rs`.
 //!
 //! A server reporting a different protocol is logged on connect.
 
+mod attention;
 mod client;
 mod connection;
 mod endpoint;
@@ -30,6 +31,7 @@ mod link;
 mod repos;
 mod session;
 
+pub use attention::{ALERT_DELAY, Alert, Attention};
 pub use client::{EmbeddedClient, embedded_config, find_binary, user_config_path};
 pub use endpoint::Endpoint;
 pub use error::HerdrError;

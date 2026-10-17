@@ -7,6 +7,7 @@
   import { view } from "../../lib/state/view.svelte";
   import { workspace } from "../../lib/state/workspace.svelte";
   import ReviewPane from "../branches/ReviewPane.svelte";
+  import ReviewBar from "../comments/ReviewBar.svelte";
   import DiffPane from "../diff/DiffPane.svelte";
 
   const showTerminal = $derived(terminal.available && view.right === "terminal");
@@ -14,6 +15,7 @@
   let started = $state(false);
   $effect(() => {
     if (showTerminal) started = true;
+    terminal.setVisible(showTerminal);
   });
 
   /** The selected repository has no herdr workspace yet. */
@@ -47,12 +49,13 @@
 </script>
 
 <div class="right">
-  <div class="pane" class:hidden={showTerminal}>
+  <div class="pane detail" class:hidden={showTerminal}>
     {#if view.detail === "branches"}
       <ReviewPane />
     {:else}
       <DiffPane />
     {/if}
+    <ReviewBar />
   </div>
   {#if started}
     <!-- xterm.js loads with the first use of the terminal, not at startup. -->
@@ -80,6 +83,10 @@
     grid-area: 1 / 1;
     min-width: 0;
     min-height: 0;
+  }
+
+  .pane.detail {
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .pane.hidden {

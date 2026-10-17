@@ -157,6 +157,8 @@ mod tests {
             registry.settings.terminal_font_size,
             crate::registry::DEFAULT_TERMINAL_FONT_SIZE
         );
+        assert!(!registry.settings.sound_muted);
+        assert!(registry.settings.mute_when_watching);
     }
 
     #[test]

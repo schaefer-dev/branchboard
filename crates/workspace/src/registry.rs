@@ -88,10 +88,20 @@ pub struct Settings {
     /// the default.
     #[serde(default = "default_terminal_font_size")]
     pub terminal_font_size: u16,
+    /// No sounds when agents need the user; notifications still show.
+    #[serde(default)]
+    pub sound_muted: bool,
+    /// No sound for an agent the user is watching in the terminal.
+    #[serde(default = "default_mute_when_watching")]
+    pub mute_when_watching: bool,
 }
 
 fn default_terminal_font_size() -> u16 {
     DEFAULT_TERMINAL_FONT_SIZE
+}
+
+fn default_mute_when_watching() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -99,6 +109,8 @@ impl Default for Settings {
         Self {
             fetch_interval_minutes: DEFAULT_FETCH_INTERVAL_MINUTES,
             terminal_font_size: DEFAULT_TERMINAL_FONT_SIZE,
+            sound_muted: false,
+            mute_when_watching: default_mute_when_watching(),
         }
     }
 }
@@ -232,6 +244,14 @@ impl Registry {
     pub fn set_terminal_font_size(&mut self, size: u16) {
         self.settings.terminal_font_size =
             size.clamp(*TERMINAL_FONT_SIZES.start(), *TERMINAL_FONT_SIZES.end());
+    }
+
+    pub fn set_sound_muted(&mut self, muted: bool) {
+        self.settings.sound_muted = muted;
+    }
+
+    pub fn set_mute_when_watching(&mut self, mute: bool) {
+        self.settings.mute_when_watching = mute;
     }
 
     pub fn set_favorite(&mut self, id: &RepoId, favorite: bool) -> Result<(), WorkspaceError> {

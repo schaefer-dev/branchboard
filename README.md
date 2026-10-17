@@ -17,6 +17,14 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
 - **Keep an eye on your agents.** See every agent across all herdr spaces with its state —
   working, blocked, done, or idle — next to the repository it works in. Click an agent to
   jump straight to it.
+- **Never miss an agent.** When an agent needs input or has finished, Branchboard shows a
+  notification while it is in the background and plays a short sound. Mute the sounds, or
+  only those of the agent you are watching, in the status bar. **Next** jumps through the
+  agents that need you: to the terminal of one waiting for input, to the work of one that
+  finished.
+- **Send your review to the agent.** Comment on lines, ranges or whole files in any diff,
+  then send the review: Branchboard pastes your comments, with file, lines and quoted code,
+  into the agent's input for you to submit. Without an agent, copy the review instead.
 - **Agents and review in one window.** The herdr terminal runs embedded beside the diff.
   Switch between diff and terminal in the pane header; the terminal follows the selected
   repository, and navigating inside herdr selects the matching repository.
@@ -50,6 +58,8 @@ Branchboard is in active development. Installers are distributed through
   it; this requires internet access.
 
 Git 2.41 or newer must be available on `PATH`. Install herdr separately for agent features.
+The herdr terminal inside Branchboard plays no sounds, since Branchboard alerts itself; herdr
+clients in other terminals keep the sound settings of your herdr config.
 Builds are unsigned and macOS builds are not notarized, so Gatekeeper or SmartScreen may
 show a warning. Code signing and automatic updates are not currently configured.
 
@@ -106,18 +116,19 @@ The default comparison branch is `origin/development`, falling back to `origin/m
 
 Use `⌘` on macOS and `Ctrl` on Windows.
 
-| Action               | macOS       | Windows        |
-| -------------------- | ----------- | -------------- |
-| Switch repository    | `⌘ P`       | `Ctrl P`       |
-| Command palette      | `⌘ K`       | `Ctrl K`       |
-| Add repositories     | `⌘ O`       | `Ctrl O`       |
-| Show changes         | `⌘ 1`       | `Ctrl 1`       |
-| Show branches        | `⌘ 2`       | `Ctrl 2`       |
-| Show terminal        | `⌘ Shift T` | `Ctrl Shift T` |
-| Fetch                | `⌘ Shift F` | `Ctrl Shift F` |
-| Open in VS Code      | `⌘ Shift E` | `Ctrl Shift E` |
-| Write commit message | `⌘ 3`       | `Ctrl 3`       |
-| Commit               | `⌘ Enter`   | `Ctrl Enter`   |
+| Action                 | macOS       | Windows        |
+| ---------------------- | ----------- | -------------- |
+| Switch repository      | `⌘ P`       | `Ctrl P`       |
+| Command palette        | `⌘ K`       | `Ctrl K`       |
+| Add repositories       | `⌘ O`       | `Ctrl O`       |
+| Show changes           | `⌘ 1`       | `Ctrl 1`       |
+| Show branches          | `⌘ 2`       | `Ctrl 2`       |
+| Show terminal          | `⌘ Shift T` | `Ctrl Shift T` |
+| Fetch                  | `⌘ Shift F` | `Ctrl Shift F` |
+| Open in VS Code        | `⌘ Shift E` | `Ctrl Shift E` |
+| Next agent needing you | `⌘ J`       | `Ctrl Shift J` |
+| Write commit message   | `⌘ 3`       | `Ctrl 3`       |
+| Commit                 | `⌘ Enter`   | `Ctrl Enter`   |
 
 ## Current scope
 

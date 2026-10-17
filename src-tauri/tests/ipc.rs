@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use branchboard_lib::{AppOptions, build};
+use branchboard_lib::{Alerts, AppOptions, Notice, Sound, build};
 use serde_json::{Value, json};
 use tauri::test::{INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder};
 use tauri::{App, Manager, WebviewWindow};
@@ -981,11 +981,28 @@ fn opens_files_in_the_editor() {
     assert_eq!(args, expected);
 }
 
-/// A herdr server answering from a fixed session snapshot; records the
-/// requests it gets.
+/// A connection to the fake herdr; writes from the connection's thread and
+/// from pushed events must not interleave.
+struct FakeConnection {
+    stream: interprocess::local_socket::Stream,
+    writing: std::sync::Mutex<()>,
+}
+
+impl FakeConnection {
+    fn send(&self, line: &Value) -> std::io::Result<()> {
+        use std::io::Write;
+        let _writing = self.writing.lock().unwrap();
+        (&self.stream).write_all(format!("{line}\n").as_bytes())
+    }
+}
+
+/// A herdr server answering from a session snapshot the test can change;
+/// records the requests it gets.
 struct FakeHerdr {
     socket: PathBuf,
     requests: std::sync::Arc<std::sync::Mutex<Vec<Value>>>,
+    snapshot: std::sync::Arc<std::sync::Mutex<Value>>,
+    subscribers: std::sync::Arc<std::sync::Mutex<Vec<std::sync::Arc<FakeConnection>>>>,
     _dir: TempDir,
 }
 
@@ -993,7 +1010,8 @@ impl FakeHerdr {
     fn start(snapshot: Value) -> Self {
         use interprocess::local_socket::ListenerOptions;
         use interprocess::local_socket::prelude::*;
-        use std::io::{BufRead, BufReader, Write};
+        use std::io::{BufRead, BufReader};
+        use std::sync::{Arc, Mutex};
 
         // Unix socket paths are limited to ~100 bytes; macOS temp dirs are long.
         let dir = if cfg!(unix) {
@@ -1017,30 +1035,48 @@ impl FakeHerdr {
                 .unwrap()
         };
         let listener = ListenerOptions::new().name(name).create_sync().unwrap();
-        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let log = std::sync::Arc::clone(&requests);
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let snapshot = Arc::new(Mutex::new(snapshot));
+        let subscribers: Arc<Mutex<Vec<Arc<FakeConnection>>>> = Arc::default();
+        let (log, current, subscribed) = (
+            Arc::clone(&requests),
+            Arc::clone(&snapshot),
+            Arc::clone(&subscribers),
+        );
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (snapshot, log) = (snapshot.clone(), std::sync::Arc::clone(&log));
+                let connection = Arc::new(FakeConnection {
+                    stream,
+                    writing: Mutex::new(()),
+                });
+                let (log, current, subscribed) = (
+                    Arc::clone(&log),
+                    Arc::clone(&current),
+                    Arc::clone(&subscribed),
+                );
                 std::thread::spawn(move || {
-                    let mut reader = BufReader::new(&stream);
+                    let mut reader = BufReader::new(&connection.stream);
                     let mut line = String::new();
                     while reader.read_line(&mut line).unwrap_or(0) > 0 {
                         let request: Value = serde_json::from_str(&line).unwrap();
                         line.clear();
                         let result = match request["method"].as_str().unwrap() {
                             "session.snapshot" => {
+                                let snapshot = current.lock().unwrap().clone();
                                 json!({ "type": "session_snapshot", "snapshot": snapshot })
                             }
-                            "events.subscribe" => json!({ "type": "subscription_started" }),
+                            "events.subscribe" => {
+                                subscribed.lock().unwrap().push(Arc::clone(&connection));
+                                json!({ "type": "subscription_started" })
+                            }
                             "workspace.create" => json!({ "workspace": { "workspace_id": "w9" } }),
                             _ => json!({ "type": "ok" }),
                         };
                         let response = json!({ "id": request["id"], "result": result });
                         log.lock().unwrap().push(request);
-                        (&stream)
-                            .write_all(format!("{response}\n").as_bytes())
-                            .unwrap();
+                        if connection.send(&response).is_err() {
+                            return;
+                        }
                     }
                 });
             }
@@ -1048,8 +1084,21 @@ impl FakeHerdr {
         Self {
             socket,
             requests,
+            snapshot,
+            subscribers,
             _dir: dir,
         }
+    }
+
+    /// Changes the session and tells the subscribers, like herdr does when
+    /// an agent's state changes.
+    fn change(&self, change: impl FnOnce(&mut Value)) {
+        change(&mut self.snapshot.lock().unwrap());
+        let event = json!({ "event": "pane.agent_status_changed", "data": {} });
+        self.subscribers
+            .lock()
+            .unwrap()
+            .retain(|connection| connection.send(&event).is_ok());
     }
 
     fn requests(&self, method: &str) -> Vec<Value> {
@@ -1077,11 +1126,50 @@ fn reports_agents_unavailable_without_herdr() {
     assert_eq!(error["kind"], "herdrUnavailable");
 }
 
+/// Records alerts instead of showing notifications and playing sounds.
+#[derive(Debug, Default)]
+struct RecordedAlerts {
+    notices: std::sync::Mutex<Vec<Notice>>,
+    sounds: std::sync::Mutex<Vec<Sound>>,
+}
+
+impl Alerts for RecordedAlerts {
+    fn notify(&self, notice: Notice) {
+        self.notices.lock().unwrap().push(notice);
+    }
+
+    fn play(&self, sound: Sound) {
+        self.sounds.lock().unwrap().push(sound);
+    }
+}
+
+impl RecordedAlerts {
+    fn sounds(&self) -> Vec<Sound> {
+        self.sounds.lock().unwrap().clone()
+    }
+
+    /// Waits for `count` sounds, then a moment longer for any unexpected one.
+    fn wait_for_sounds(&self, count: usize) -> Vec<Sound> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while self.sounds().len() < count {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "only got {:?}",
+                self.sounds()
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        self.sounds()
+    }
+}
+
 /// Two repositories and a fake herdr with agents in one of them and in a
 /// space that is no repository.
 struct HerdrSetup {
     fake: FakeHerdr,
     harness: Harness,
+    alerts: std::sync::Arc<RecordedAlerts>,
     api_id: String,
     docs_id: String,
     _repos: TempDir,
@@ -1121,8 +1209,11 @@ fn herdr_setup() -> HerdrSetup {
         ],
     }));
 
+    let alerts = std::sync::Arc::new(RecordedAlerts::default());
     let harness = Harness::with_options(AppOptions {
         herdr_socket: Some(fake.socket.clone()),
+        alerts: Some(alerts.clone()),
+        alert_delay: Some(std::time::Duration::ZERO),
         ..AppOptions::default()
     });
     let api_id = harness.add(&api);
@@ -1131,10 +1222,85 @@ fn herdr_setup() -> HerdrSetup {
     HerdrSetup {
         fake,
         harness,
+        alerts,
         api_id,
         docs_id,
         _repos: repos,
     }
+}
+
+/// Sets the state of the agent in `pane_id` in a fake session snapshot.
+fn set_agent_state(snapshot: &mut Value, pane_id: &str, state: &str) {
+    let agent = snapshot["agents"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|agent| agent["pane_id"] == pane_id)
+        .unwrap();
+    agent["agent_status"] = json!(state);
+}
+
+#[test]
+fn pastes_into_an_agent_without_submitting() {
+    let HerdrSetup { fake, harness, .. } = herdr_setup();
+    harness.ok(
+        "paste_to_agent",
+        json!({ "paneId": "w1:p2", "text": "src/a.ts:3\nRename this." }),
+    );
+    assert_eq!(
+        fake.requests("pane.send_text"),
+        [json!({ "pane_id": "w1:p2", "text": "\u{1b}[200~src/a.ts:3\nRename this.\u{1b}[201~" })]
+    );
+}
+
+#[test]
+fn alerts_when_agents_come_to_need_the_user() {
+    let HerdrSetup {
+        fake,
+        harness,
+        alerts,
+        ..
+    } = herdr_setup();
+    // The first session only sets the baseline: its blocked and done agents
+    // were there before.
+    harness.ok("get_agents", json!({}));
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(alerts.sounds(), []);
+
+    // The working Codex finishes; the window has focus, so no notification.
+    fake.change(|snapshot| set_agent_state(snapshot, "w1:p1", "done"));
+    assert_eq!(alerts.wait_for_sounds(1), [Sound::Done]);
+    assert_eq!(alerts.notices.lock().unwrap().len(), 0);
+
+    // An agent the user watches in the terminal stays silent by default…
+    harness.ok("set_terminal_visible", json!({ "visible": true }));
+    fake.change(|snapshot| {
+        snapshot["focused_workspace_id"] = json!("w1");
+        set_agent_state(snapshot, "w1:p1", "blocked");
+    });
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    // …one in another workspace does not.
+    fake.change(|snapshot| set_agent_state(snapshot, "w2:p1", "blocked"));
+    assert_eq!(alerts.wait_for_sounds(2), [Sound::Done, Sound::NeedsInput]);
+
+    // Muted, nothing plays.
+    let workspace = harness.ok("set_sound_muted", json!({ "muted": true }));
+    assert_eq!(workspace["settings"]["soundMuted"], true);
+    fake.change(|snapshot| set_agent_state(snapshot, "w2:p1", "done"));
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    assert_eq!(alerts.sounds().len(), 2);
+}
+
+#[test]
+fn remembers_the_sound_settings() {
+    let harness = Harness::new();
+    let workspace = harness.ok("get_workspace", json!({}));
+    assert_eq!(workspace["settings"]["soundMuted"], false);
+    assert_eq!(workspace["settings"]["muteWhenWatching"], true);
+    let workspace = harness.ok("set_sound_muted", json!({ "muted": true }));
+    assert_eq!(workspace["settings"]["soundMuted"], true);
+    let workspace = harness.ok("set_mute_when_watching", json!({ "mute": false }));
+    assert_eq!(workspace["settings"]["muteWhenWatching"], false);
 }
 
 #[test]

@@ -178,6 +178,46 @@ fn workspace(server: &Server, label: &str, mark: &str) -> (PathBuf, String) {
     (dir.canonicalize().unwrap(), pane)
 }
 
+/// A review pasted into a pane arrives as one bracketed paste, byte for
+/// byte, so the agent CLI in it neither submits it nor splits it up.
+#[cfg(unix)]
+#[test]
+#[ignore = "needs herdr installed; starts an isolated herdr server"]
+fn pastes_into_a_pane_without_submitting() {
+    let server = Server::start();
+    let (dir, pane) = workspace(&server, "paste", "PASTE-MARK");
+    let received = dir.join("received");
+    // A raw terminal hands every byte to `cat` unchanged.
+    server.run(&[
+        "pane",
+        "run",
+        &pane,
+        &format!("stty raw -icrnl -echo; cat > '{}'", received.display()),
+    ]);
+    std::thread::sleep(Duration::from_millis(500));
+
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let link = herdr::HerdrLink::new(Some(Endpoint::new(server.socket())), Arc::new(NoSink));
+    runtime
+        .block_on(link.paste(&pane, "src/a.ts:3\n```ts\nlet a = 1;\n```\nRename this."))
+        .unwrap();
+
+    let expected = "\x1b[200~src/a.ts:3\n```ts\nlet a = 1;\n```\nRename this.\x1b[201~";
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let bytes = std::fs::read(&received).unwrap_or_default();
+        if bytes == expected.as_bytes() {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the pane received {:?}",
+            String::from_utf8_lossy(&bytes)
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
 /// Gates 2 and 5 of the embedded terminal (see ADR 0013): the real client
 /// attaches inside our PTY, hides herdr's sidebar, follows `workspace.focus`
 /// and detaches on prefix+q; the agents list covers what herdr lists.

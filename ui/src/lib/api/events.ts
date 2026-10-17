@@ -31,3 +31,10 @@ export function onRepoAgents(handler: (agents: AgentsSnapshot) => void): Promise
     handler(event.payload);
   });
 }
+
+/** The user clicked the notification about the agent in pane `paneId`. */
+export function onAlertOpened(handler: (paneId: string) => void): Promise<UnlistenFn> {
+  return listen<string>("alert-opened", (event) => {
+    handler(event.payload);
+  });
+}

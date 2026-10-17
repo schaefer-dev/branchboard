@@ -4,7 +4,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use pty::PtyCommand;
-use toml_edit::{DocumentMut, Item, value};
+use toml_edit::{DocumentMut, Item, TableLike, value};
 
 use crate::Endpoint;
 
@@ -65,9 +65,11 @@ pub fn user_config_path() -> Option<PathBuf> {
 }
 
 /// The user's herdr config adjusted for the embedded client: herdr's own
-/// sidebar is hidden, since Branchboard shows the repositories and agents.
-/// Everything else (keys, theme, …) stays the user's. An unreadable config
-/// is replaced by one with only these settings, like herdr's defaults.
+/// sidebar is hidden, since Branchboard shows the repositories and agents,
+/// and the client plays no sounds and shows no notifications, since
+/// Branchboard alerts about agents itself. Everything else (keys, theme, …)
+/// stays the user's. An unreadable config is replaced by one with only these
+/// settings, like herdr's defaults.
 pub fn embedded_config(user: Option<&str>) -> String {
     let mut document = user
         .and_then(|text| {
@@ -79,20 +81,27 @@ pub fn embedded_config(user: Option<&str>) -> String {
     if !document.contains_key("onboarding") {
         document["onboarding"] = value(false);
     }
-    let ui = document
-        .entry("ui")
-        .or_insert_with(toml_edit::table)
-        .as_table_like_mut();
-    if let Some(ui) = ui {
-        ui.insert("sidebar_start_collapsed", Item::Value(true.into()));
-        ui.insert("sidebar_collapsed_mode", Item::Value("hidden".into()));
-    } else {
-        // `ui` was not a table; herdr would reject that anyway.
-        document["ui"] = toml_edit::table();
-        document["ui"]["sidebar_start_collapsed"] = value(true);
-        document["ui"]["sidebar_collapsed_mode"] = value("hidden");
-    }
+    force(&mut document, &["ui"], "sidebar_start_collapsed", true);
+    force(&mut document, &["ui"], "sidebar_collapsed_mode", "hidden");
+    force(&mut document, &["ui", "sound"], "enabled", false);
+    force(&mut document, &["ui", "toast"], "delivery", "off");
     document.to_string()
+}
+
+/// Sets `key` in the table at `path`, creating the tables on the way. A
+/// value that is no table is replaced; herdr would reject it anyway.
+fn force(document: &mut DocumentMut, path: &[&str], key: &str, item: impl Into<toml_edit::Value>) {
+    let mut table: &mut dyn TableLike = document.as_table_mut();
+    for name in path {
+        if !table.get(name).is_some_and(Item::is_table_like) {
+            table.insert(name, toml_edit::table());
+        }
+        table = table
+            .get_mut(name)
+            .and_then(Item::as_table_like_mut)
+            .expect("the table was just ensured");
+    }
+    table.insert(key, Item::Value(item.into()));
 }
 
 /// How to start the embedded herdr client.
@@ -108,14 +117,16 @@ pub struct EmbeddedClient {
 impl EmbeddedClient {
     /// The command line and environment. `lang` is this process's `LANG`;
     /// apps started from the macOS Dock have none, which would make herdr
-    /// assume a non-UTF-8 terminal.
+    /// assume a non-UTF-8 terminal. Sounds are off on top of the config, so
+    /// they stay off whatever the user's config sets.
     pub fn command(&self, lang: Option<&OsStr>) -> PtyCommand {
         let mut command = PtyCommand::new(&self.binary)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
             .env("TERM_PROGRAM", "Branchboard")
             .env("HERDR_SOCKET_PATH", self.endpoint.path())
-            .env("HERDR_CONFIG_PATH", &self.config);
+            .env("HERDR_CONFIG_PATH", &self.config)
+            .env("HERDR_DISABLE_SOUND", "1");
         if lang.is_none_or(OsStr::is_empty) {
             command = command.env("LANG", "en_US.UTF-8");
         }
@@ -173,15 +184,46 @@ prefix = \"ctrl+a\"
     }
 
     #[test]
+    fn silences_the_client_whatever_the_user_set() {
+        let user = "\
+[ui.sound]
+enabled = true
+done_path = \"done.mp3\"
+
+[ui.toast]
+delivery = \"system\"
+delay_seconds = 3
+";
+        let parsed: DocumentMut = embedded_config(Some(user)).parse().unwrap();
+        assert_eq!(parsed["ui"]["sound"]["enabled"].as_bool(), Some(false));
+        assert_eq!(
+            parsed["ui"]["sound"]["done_path"].as_str(),
+            Some("done.mp3")
+        );
+        assert_eq!(parsed["ui"]["toast"]["delivery"].as_str(), Some("off"));
+        assert_eq!(parsed["ui"]["toast"]["delay_seconds"].as_integer(), Some(3));
+
+        // Values where herdr expects tables are replaced.
+        let parsed: DocumentMut = embedded_config(Some("[ui]\nsound = true\ntoast = 1\n"))
+            .parse()
+            .unwrap();
+        assert_eq!(parsed["ui"]["sound"]["enabled"].as_bool(), Some(false));
+        assert_eq!(parsed["ui"]["toast"]["delivery"].as_str(), Some("off"));
+    }
+
+    #[test]
     fn works_without_a_user_config() {
-        for user in [None, Some("this is [not toml")] {
+        for user in [None, Some("this is [not toml"), Some("ui = 3")] {
             let parsed: DocumentMut = embedded_config(user).parse().unwrap();
             assert_eq!(
                 parsed["ui"]["sidebar_collapsed_mode"].as_str(),
                 Some("hidden")
             );
-            assert_eq!(parsed["onboarding"].as_bool(), Some(false));
+            assert_eq!(parsed["ui"]["sound"]["enabled"].as_bool(), Some(false));
+            assert_eq!(parsed["ui"]["toast"]["delivery"].as_str(), Some("off"));
         }
+        let parsed: DocumentMut = embedded_config(None).parse().unwrap();
+        assert_eq!(parsed["onboarding"].as_bool(), Some(false));
     }
 
     #[test]
@@ -199,6 +241,7 @@ prefix = \"ctrl+a\"
         assert_eq!(get("HERDR_CONFIG_PATH"), Some("/data/herdr-embedded.toml"));
         assert_eq!(get("TERM"), Some("xterm-256color"));
         assert_eq!(get("LANG"), Some("en_US.UTF-8"));
+        assert_eq!(get("HERDR_DISABLE_SOUND"), Some("1"));
         assert!(command.env_remove.iter().any(|key| key == "HERDR_PANE_ID"));
 
         let with_lang = client.command(Some(OsStr::new("de_DE.UTF-8")));

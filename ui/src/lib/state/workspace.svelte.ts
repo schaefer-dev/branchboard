@@ -22,7 +22,12 @@ export class WorkspaceStore {
     repos: [],
     groups: [],
     activeRepoId: null,
-    settings: { fetchIntervalMinutes: 10, terminalFontSize: TERMINAL_FONT_SIZE },
+    settings: {
+      fetchIntervalMinutes: 10,
+      terminalFontSize: TERMINAL_FONT_SIZE,
+      soundMuted: false,
+      muteWhenWatching: true,
+    },
   });
   summaries = new SvelteMap<RepoId, SummaryState>();
   loaded = $state(false);
@@ -105,6 +110,16 @@ export class WorkspaceStore {
   /** The backend keeps the size within bounds. */
   setTerminalFontSize(size: number): Promise<void> {
     return this.apply(api.setTerminalFontSize(size));
+  }
+
+  /** No sounds when agents need the user; notifications still show. */
+  setSoundMuted(muted: boolean): Promise<void> {
+    return this.apply(api.setSoundMuted(muted));
+  }
+
+  /** No sound for an agent the user watches in the terminal. */
+  setMuteWhenWatching(mute: boolean): Promise<void> {
+    return this.apply(api.setMuteWhenWatching(mute));
   }
 
   setGroupCollapsed(id: GroupId, collapsed: boolean): Promise<void> {

@@ -22,7 +22,12 @@ function snapshot(repos: RepoView[], groups: WorkspaceSnapshot["groups"] = []): 
     repos,
     groups,
     activeRepoId: null,
-    settings: { fetchIntervalMinutes: 10, terminalFontSize: 17 },
+    settings: {
+      fetchIntervalMinutes: 10,
+      terminalFontSize: 17,
+      soundMuted: false,
+      muteWhenWatching: true,
+    },
   };
 }
 

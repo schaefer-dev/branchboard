@@ -20,6 +20,9 @@ dunce = "1.0.5"
 interprocess = { version = "2.4.5", features = ["tokio"] }
 notify = "8.2.0"
 portable-pty = "0.9.0"
+# Playback of the two bundled WAV sounds only: no recording, and hound
+# instead of Symphonia's decoders.
+rodio = { version = "0.23.0", default-features = false, features = ["playback", "hound", "tracing"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
@@ -49,6 +52,7 @@ vt100 = "0.16.2"
 tauri = { version = "2.12.3", features = [] }
 tauri-build = { version = "2.7.2", features = [] }
 tauri-plugin-dialog = "2.8.2"
+tauri-plugin-notification = "2.7.0"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

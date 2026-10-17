@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { commands } from "../../lib/commands";
   import { agents } from "../../lib/state/agents.svelte";
   import { agentName, agentPlace, describeAgentRow } from "./agent-text";
   import AgentStateIcon from "./AgentStateIcon.svelte";
@@ -8,6 +9,8 @@
   let focusKey = $state<string | null>(null);
 
   const keys = $derived(agents.list.map((agent) => agent.paneId));
+  const waiting = $derived(agents.needYou.length);
+  const nextShortcut = commands.shortcutLabel("agents.next");
   const tabStop = $derived(focusKey && keys.includes(focusKey) ? focusKey : (keys[0] ?? null));
 
   function focusRow(key: string | undefined) {
@@ -40,14 +43,26 @@
 </script>
 
 <section class="agents" aria-label="Agents">
-  <h2 class="header">
-    <span class="title">Agents</span>
-    {#if agents.blocked > 0}
-      <span class="attention">{agents.blocked} need{agents.blocked === 1 ? "s" : ""} input</span>
-    {:else}
-      <span class="count">{agents.list.length}</span>
+  <div class="header">
+    <h2 class="heading">
+      <span class="title">Agents</span>
+      {#if waiting > 0}
+        <span class="attention" class:blocked={agents.blocked > 0}
+          >{waiting} need{waiting === 1 ? "s" : ""} you</span
+        >
+      {:else}
+        <span class="count">{agents.list.length}</span>
+      {/if}
+    </h2>
+    {#if waiting > 0}
+      <button
+        type="button"
+        class="next"
+        title="Go to the next agent that needs you{nextShortcut ? ` (${nextShortcut})` : ''}"
+        onclick={() => void agents.next()}>Next</button
+      >
     {/if}
-  </h2>
+  </div>
   <!-- Keyboard handling is delegated from the focusable rows. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
@@ -97,8 +112,15 @@
     align-items: center;
     gap: var(--space-3);
     flex: none;
-    margin: 0;
     padding: var(--space-3) var(--space-4) var(--space-2);
+  }
+
+  .heading {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--space-3);
+    margin: 0;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: 600;
@@ -114,7 +136,25 @@
   }
 
   .attention {
+    color: var(--color-text);
+  }
+
+  .attention.blocked {
     color: var(--color-agent-blocked);
+  }
+
+  .next {
+    flex: none;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .next:hover {
+    color: var(--color-text);
   }
 
   .list {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DiffState } from "../../lib/state/changes.svelte";
+  import type { CommentTarget } from "../../lib/state/comments-model";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import DiffView from "./DiffView.svelte";
 
@@ -9,9 +10,11 @@
     empty: string;
     /** Loads the diff without the size limits. */
     onShowFull: () => void;
+    /** Where comments on the diff belong; `null` offers none. */
+    target?: CommentTarget | null;
   }
 
-  let { state, empty, onShowFull }: Props = $props();
+  let { state, empty, onShowFull, target = null }: Props = $props();
 
   const diff = $derived(state.status === "ready" ? state.diff : null);
   const formatter = new Intl.NumberFormat();
@@ -44,7 +47,7 @@
       <EmptyState title="No content changes" />
     {:else}
       <div class="view">
-        <DiffView {diff} />
+        <DiffView {diff} {target} />
       </div>
     {/if}
   {/if}

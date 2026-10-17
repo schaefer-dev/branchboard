@@ -85,10 +85,16 @@ export const api = {
   setFetchInterval: (minutes: number) => call<WorkspaceSnapshot>("set_fetch_interval", { minutes }),
   setTerminalFontSize: (size: number) =>
     call<WorkspaceSnapshot>("set_terminal_font_size", { size }),
+  setSoundMuted: (muted: boolean) => call<WorkspaceSnapshot>("set_sound_muted", { muted }),
+  setMuteWhenWatching: (mute: boolean) =>
+    call<WorkspaceSnapshot>("set_mute_when_watching", { mute }),
 
   getAgents: () => call<AgentsSnapshot>("get_agents"),
   openInHerdr: (repoId: RepoId) => call<null>("open_in_herdr", { repoId }),
+  /** A finished agent counts as seen afterwards. */
   focusAgent: (paneId: string) => call<null>("focus_agent", { paneId }),
+  /** Puts `text` into the agent's input as one paste, without submitting it. */
+  pasteToAgent: (paneId: string, text: string) => call<null>("paste_to_agent", { paneId, text }),
   /** Shows the repository's herdr workspace if it has one; never creates one. */
   focusRepoInHerdr: (repoId: RepoId) => call<boolean>("focus_repo_in_herdr", { repoId }),
 
@@ -99,4 +105,6 @@ export const api = {
   terminalWrite: (data: string) => call<null>("terminal_write", { data }),
   terminalResize: (cols: number, rows: number) => call<null>("terminal_resize", { cols, rows }),
   terminalClose: () => call<null>("terminal_close"),
+  /** Whether the right column shows the terminal, where an agent may be watched. */
+  setTerminalVisible: (visible: boolean) => call<null>("set_terminal_visible", { visible }),
 } as const;

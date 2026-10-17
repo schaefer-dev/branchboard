@@ -3,6 +3,7 @@
 import { confirmDestructive } from "../../lib/platform/dialogs";
 import { showContextMenu } from "../../lib/platform/menu";
 import { changes } from "../../lib/state/changes.svelte";
+import { comments } from "../../lib/state/comments.svelte";
 import type { ChangeItem } from "../../lib/state/changes-model";
 import { openChangeInEditor } from "../editor/open-in-editor";
 
@@ -41,6 +42,18 @@ export function showChangeMenu(items: ChangeItem[]): Promise<void> {
             kind: "item",
             text: "Open in VS Code",
             run: () => void openChangeInEditor(single),
+          } as const,
+          {
+            kind: "item",
+            text: "Comment on file",
+            run: () => {
+              if (changes.repoId) {
+                comments.start(
+                  { repoId: changes.repoId, path: single.change.path, source: single.area },
+                  null,
+                );
+              }
+            },
           } as const,
           { kind: "separator" } as const,
         ]

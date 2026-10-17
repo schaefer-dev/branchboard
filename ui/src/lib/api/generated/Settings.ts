@@ -10,4 +10,12 @@ fetchIntervalMinutes: number,
  * Font size of the embedded terminal; files from before it existed get
  * the default.
  */
-terminalFontSize: number, };
+terminalFontSize: number, 
+/**
+ * No sounds when agents need the user; notifications still show.
+ */
+soundMuted: boolean, 
+/**
+ * No sound for an agent the user is watching in the terminal.
+ */
+muteWhenWatching: boolean, };

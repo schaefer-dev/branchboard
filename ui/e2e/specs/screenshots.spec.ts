@@ -23,6 +23,25 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "changes", scheme);
     });
 
+    test("review comments", async ({ page }, info) => {
+      await openApp(page, "agents");
+      await changesList(page).locator('[data-key="unstaged:src/handlers/login.ts"]').click();
+      const comment = async (index: number, text: string) => {
+        const line = diffPane(page).locator(`[data-index="${String(index)}"]`);
+        await line.hover();
+        await line.getByRole("button", { name: "Comment on this line" }).click();
+        await page.keyboard.type(text);
+        await page.keyboard.press(`${await mod(page)}+Enter`);
+      };
+      await comment(5, "Don't log the user name; it is personal data.");
+      const line = diffPane(page).locator('[data-index="8"]');
+      await line.hover();
+      await line.getByRole("button", { name: "Comment on this line" }).click();
+      await page.keyboard.type("Add a test for the unknown user.");
+      await expect(page.getByRole("form", { name: "Write a comment" })).toBeVisible();
+      await capture(page, info.project.name, "comments", scheme);
+    });
+
     test("commit message", async ({ page }, info) => {
       await openApp(page);
       await page

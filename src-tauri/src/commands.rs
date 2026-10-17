@@ -397,6 +397,32 @@ pub async fn set_terminal_font_size(
     .await
 }
 
+/// No sounds when agents need the user; notifications still show.
+#[tauri::command]
+pub async fn set_sound_muted(
+    state: State<'_, AppState>,
+    muted: bool,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_sound_muted(muted);
+        Ok(())
+    })
+    .await
+}
+
+/// No sound for an agent the user is watching in the terminal.
+#[tauri::command]
+pub async fn set_mute_when_watching(
+    state: State<'_, AppState>,
+    mute: bool,
+) -> CommandResult<WorkspaceSnapshot> {
+    update(&state, |registry| {
+        registry.set_mute_when_watching(mute);
+        Ok(())
+    })
+    .await
+}
+
 async fn update(
     state: &AppState,
     change: impl FnOnce(&mut workspace::Registry) -> Result<(), workspace::WorkspaceError>,
@@ -447,10 +473,28 @@ pub async fn focus_repo_in_herdr(
     Ok(focused.is_some())
 }
 
-/// Shows an agent in herdr: its workspace, tab and pane.
+/// Shows an agent in herdr: its workspace, tab and pane. A finished agent
+/// counts as seen afterwards.
 #[tauri::command]
 pub async fn focus_agent(state: State<'_, AppState>, pane_id: String) -> CommandResult<()> {
     Ok(state.herdr.focus_agent(&pane_id).await?)
+}
+
+/// Puts `text` into the agent's input as one paste, without submitting it.
+#[tauri::command]
+pub async fn paste_to_agent(
+    state: State<'_, AppState>,
+    pane_id: String,
+    text: String,
+) -> CommandResult<()> {
+    Ok(state.herdr.paste(&pane_id, &text).await?)
+}
+
+/// Whether the right column shows the terminal; an agent in it may be
+/// watched, which can silence its alerts.
+#[tauri::command]
+pub fn set_terminal_visible(state: State<'_, AppState>, visible: bool) {
+    state.set_terminal_visible(visible);
 }
 
 /// Whether the embedded terminal can run herdr.

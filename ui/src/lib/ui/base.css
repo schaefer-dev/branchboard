@@ -104,6 +104,11 @@ button {
   color: var(--color-text);
 }
 
+.icon-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 /* Text fields */
 
 .field {

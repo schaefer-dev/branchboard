@@ -226,12 +226,21 @@ export class FakeBackend {
       case "set_terminal_font_size":
         workspace.settings.terminalFontSize = Math.min(32, Math.max(9, Number(args.size)));
         return this.snapshot();
+      case "set_sound_muted":
+        workspace.settings.soundMuted = Boolean(args.muted);
+        return this.snapshot();
+      case "set_mute_when_watching":
+        workspace.settings.muteWhenWatching = Boolean(args.mute);
+        return this.snapshot();
       case "get_agents":
         return structuredClone(this.state.agents);
       case "focus_agent":
+      case "paste_to_agent":
         if (!this.state.agents.agents.some((agent) => agent.paneId === args.paneId)) {
           fail("herdrFailed", "herdr reported an error.", "not_found: agent not found");
         }
+        return null;
+      case "set_terminal_visible":
         return null;
       case "terminal_info":
         return { available: this.state.terminal };
@@ -338,6 +347,9 @@ export class FakeBackend {
         output?.onmessage({ exit: code });
       },
       herdrFocus: (repoId) => this.herdrFocus(repoId),
+      openAlert: async (paneId) => {
+        await emit("alert-opened", paneId);
+      },
       setAgents: async (agents: AgentsSnapshot) => {
         this.state.agents = agents;
         await emit("repo-agents", agents);

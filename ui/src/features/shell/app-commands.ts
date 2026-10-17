@@ -2,6 +2,7 @@
 // menus all run these.
 
 import { commands } from "../../lib/commands";
+import { isMac } from "../../lib/platform/os";
 import { agents } from "../../lib/state/agents.svelte";
 import { branches } from "../../lib/state/branches.svelte";
 import { terminal } from "../../lib/state/terminal.svelte";
@@ -20,6 +21,7 @@ interface Dialogs {
 }
 
 const terminalFontSize = () => workspace.snapshot.settings.terminalFontSize;
+const settings = () => workspace.snapshot.settings;
 
 /** The active repository, if it can be worked with. */
 const usableRepo = () => {
@@ -88,6 +90,30 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       shortcut: { key: "t", mod: true, shift: true },
       enabled: () => terminal.available || (agents.available && usableRepo() !== null),
       run: () => openRepoInHerdr(usableRepo()),
+    }),
+    commands.register({
+      id: "agents.next",
+      title: "Go to next agent that needs you",
+      // Ctrl+J belongs to the terminal outside macOS (see `keyOwner`).
+      shortcut: isMac ? { key: "j", mod: true } : { key: "j", mod: true, shift: true },
+      enabled: () => agents.needYou.length > 0,
+      run: () => agents.next(),
+    }),
+    commands.register({
+      id: "sound.mute",
+      get title() {
+        return settings().soundMuted ? "Unmute agent sounds" : "Mute agent sounds";
+      },
+      run: () => workspace.setSoundMuted(!settings().soundMuted),
+    }),
+    commands.register({
+      id: "sound.muteWhenWatching",
+      get title() {
+        return settings().muteWhenWatching
+          ? "Play sounds for the agent on screen"
+          : "Mute sounds for the agent on screen";
+      },
+      run: () => workspace.setMuteWhenWatching(!settings().muteWhenWatching),
     }),
     commands.register({
       id: "terminal.fontLarger",

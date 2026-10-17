@@ -5,10 +5,13 @@
   import { branches } from "../../lib/state/branches.svelte";
   import { timeAgo } from "../../lib/state/branches-model";
   import { splitPath } from "../../lib/state/changes-model";
+  import { comments } from "../../lib/state/comments.svelte";
+  import type { CommentTarget } from "../../lib/state/comments-model";
   import { review } from "../../lib/state/review.svelte";
   import { targetKey } from "../../lib/state/review-model";
   import { view } from "../../lib/state/view.svelte";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
+  import Icon from "../../lib/ui/Icon.svelte";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
   import Splitter from "../../lib/ui/Splitter.svelte";
   import FileRow from "../changes/FileRow.svelte";
@@ -29,6 +32,11 @@
   const file = $derived(review.cursorFile);
   const parts = $derived(file ? splitPath(file.path) : null);
   const reviewDiff = $derived(review.diff.status === "ready" ? review.diff.diff : null);
+  const commentTarget = $derived.by((): CommentTarget | null => {
+    const repoId = review.repoId;
+    const key = review.targetKey;
+    return file && repoId && key ? { repoId, path: file.path, source: `review:${key}` } : null;
+  });
   const selectedCommit = $derived.by((): CommitSummary | null => {
     const target = review.target;
     if (target?.kind !== "commit" || !data) return null;
@@ -273,12 +281,25 @@
               <span class="deletions">−{formatter.format(reviewDiff.deletions)}</span>
             </span>
           {/if}
+          <button
+            type="button"
+            class="icon-btn"
+            title="Comment on this file"
+            aria-label="Comment on this file"
+            disabled={!reviewDiff || reviewDiff.hunks.length === 0}
+            onclick={() => {
+              if (commentTarget) comments.start(commentTarget, null);
+            }}
+          >
+            <Icon name="comment" />
+          </button>
         </div>
       {/if}
       <DiffBody
         state={file ? review.diff : { status: "idle" }}
         empty="Select a file to see its changes."
         onShowFull={() => void review.loadDiff(true)}
+        target={commentTarget}
       />
     </section>
   {/if}
@@ -429,7 +450,7 @@
   .diff-head {
     display: flex;
     flex: none;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-3);
     padding: var(--space-2) var(--space-4);
     border-bottom: 1px solid var(--color-border);

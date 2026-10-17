@@ -23,7 +23,12 @@ const snapshot: WorkspaceSnapshot = {
   repos: [repo("1", "api"), repo("2", "payment-service"), repo("3", "web")],
   groups: [],
   activeRepoId: "1",
-  settings: { fetchIntervalMinutes: 10, terminalFontSize: 17 },
+  settings: {
+    fetchIntervalMinutes: 10,
+    terminalFontSize: 17,
+    soundMuted: false,
+    muteWhenWatching: true,
+  },
 };
 
 describe("QuickSwitcher", () => {
@@ -35,7 +40,12 @@ describe("QuickSwitcher", () => {
     respond("set_active_repo", ({ repoId }) => ({
       ...snapshot,
       activeRepoId: repoId,
-      settings: { fetchIntervalMinutes: 10, terminalFontSize: 17 },
+      settings: {
+        fetchIntervalMinutes: 10,
+        terminalFontSize: 17,
+        soundMuted: false,
+        muteWhenWatching: true,
+      },
     }));
   });
 

@@ -38,6 +38,8 @@ export interface FakeControl {
   terminalExit(code: number | null): void;
   /** herdr switches to the workspace of `repoId`, e.g. navigated in the terminal. */
   herdrFocus(repoId: string): Promise<void>;
+  /** The user clicks the system notification about the agent in `paneId`. */
+  openAlert(paneId: string): Promise<void>;
   /** Replaces what herdr reports, as when an agent changes state. */
   setAgents(agents: AgentsSnapshot): Promise<void>;
   /** Simulates an external change to the working tree of a repository. */

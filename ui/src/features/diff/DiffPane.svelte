@@ -1,6 +1,8 @@
 <script lang="ts">
   import { changes } from "../../lib/state/changes.svelte";
   import { splitPath } from "../../lib/state/changes-model";
+  import { comments } from "../../lib/state/comments.svelte";
+  import type { CommentTarget } from "../../lib/state/comments-model";
   import Icon from "../../lib/ui/Icon.svelte";
   import { openChangeInEditor } from "../editor/open-in-editor";
   import PaneHeader from "../../lib/ui/PaneHeader.svelte";
@@ -11,6 +13,10 @@
   const state = $derived(changes.diff);
   const diff = $derived(state.status === "ready" ? state.diff : null);
   const parts = $derived(item ? splitPath(item.change.path) : null);
+  const target = $derived.by((): CommentTarget | null => {
+    const repoId = changes.repoId;
+    return item && repoId ? { repoId, path: item.change.path, source: item.area } : null;
+  });
   const formatter = new Intl.NumberFormat();
 </script>
 
@@ -33,6 +39,18 @@
       <button
         type="button"
         class="icon-btn"
+        title="Comment on this file"
+        aria-label="Comment on this file"
+        disabled={!diff || diff.hunks.length === 0}
+        onclick={() => {
+          if (target) comments.start(target, null);
+        }}
+      >
+        <Icon name="comment" />
+      </button>
+      <button
+        type="button"
+        class="icon-btn"
         title="Open in VS Code"
         aria-label="Open in VS Code"
         onclick={() => void openChangeInEditor(item)}
@@ -47,6 +65,7 @@
     state={item ? state : { status: "idle" }}
     empty="Select a file to see its changes."
     onShowFull={() => void changes.loadDiff(true)}
+    {target}
   />
 </section>
 

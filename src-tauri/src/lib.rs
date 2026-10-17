@@ -3,6 +3,7 @@
 //! This crate only wires things together: it exposes commands to the
 //! frontend and delegates all actual work to the core crates.
 
+mod alerts;
 mod commands;
 mod dto;
 mod error;
@@ -19,8 +20,10 @@ use tauri::{Manager, RunEvent, Runtime, WindowEvent};
 use tracing_subscriber::EnvFilter;
 use workspace::Workspace;
 
+use crate::alerts::SystemAlerts;
+pub use crate::alerts::{Alerts, Notice, Sound};
 use crate::events::TauriEvents;
-use crate::state::{AppState, Paths};
+use crate::state::{Alerting, AppState, Paths};
 
 /// How often to check whether the repository on screen is due for a fetch.
 const BACKGROUND_FETCH_CHECK: Duration = Duration::from_secs(60);
@@ -37,6 +40,12 @@ pub struct AppOptions {
     pub herdr_socket: Option<PathBuf>,
     /// Program to run in the embedded terminal instead of herdr.
     pub terminal_program: Option<PathBuf>,
+    /// Receives alerts about agents instead of the system's notifications
+    /// and speakers.
+    pub alerts: Option<Arc<dyn Alerts>>,
+    /// How long an agent's new state must hold before it is alerted about,
+    /// instead of [`herdr::ALERT_DELAY`].
+    pub alert_delay: Option<Duration>,
 }
 
 /// Starts the application and blocks until it exits.
@@ -54,6 +63,8 @@ pub fn run() {
         herdr_socket: None,
         // The Windows smoke test runs a shell in place of herdr.
         terminal_program: std::env::var_os("BRANCHBOARD_TERMINAL_PROGRAM").map(PathBuf::from),
+        alerts: None,
+        alert_delay: None,
     };
     build(tauri::Builder::default(), options)
         .build(tauri::generate_context!())
@@ -74,6 +85,7 @@ pub fn run() {
 pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tauri::Builder<R> {
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let file = match options.workspace_file.clone() {
                 Some(file) => file,
@@ -88,6 +100,10 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             };
             let terminal_config =
                 terminal::config_file(file.parent().unwrap_or_else(|| std::path::Path::new(".")));
+            let alerts = match options.alerts.clone() {
+                Some(alerts) => alerts,
+                None => Arc::new(SystemAlerts::new(app.handle().clone())),
+            };
             let state = AppState::new(
                 version,
                 Workspace::open(file, events.clone()),
@@ -96,6 +112,10 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
                     editor: options.editor.clone(),
                     terminal_config,
                     terminal_program: options.terminal_program.clone(),
+                },
+                Alerting {
+                    alerts,
+                    delay: options.alert_delay.unwrap_or(herdr::ALERT_DELAY),
                 },
             );
             app.manage(state.clone());
@@ -156,10 +176,14 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::set_mainline,
             commands::set_fetch_interval,
             commands::set_terminal_font_size,
+            commands::set_sound_muted,
+            commands::set_mute_when_watching,
             commands::get_agents,
             commands::open_in_herdr,
             commands::focus_agent,
+            commands::paste_to_agent,
             commands::focus_repo_in_herdr,
+            commands::set_terminal_visible,
             commands::terminal_info,
             commands::terminal_open,
             commands::terminal_write,

@@ -190,12 +190,39 @@ impl HerdrLink {
 }
 
 impl HerdrLink {
-    /// Shows the agent in pane `pane_id`: its workspace, tab and pane.
+    /// Shows the agent in pane `pane_id`: its workspace, tab and pane. herdr
+    /// then counts a finished agent as seen (`done` becomes `idle`).
     pub async fn focus_agent(&self, pane_id: &str) -> Result<(), HerdrError> {
         let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
         connection::request::<Value>(endpoint, "agent.focus", json!({ "target": pane_id })).await?;
         Ok(())
     }
+
+    /// Puts `text` into the input of the program in pane `pane_id` as one
+    /// paste, without submitting it.
+    pub async fn paste(&self, pane_id: &str, text: &str) -> Result<(), HerdrError> {
+        let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
+        connection::request::<Value>(
+            endpoint,
+            "pane.send_text",
+            json!({ "pane_id": pane_id, "text": bracketed_paste(text) }),
+        )
+        .await?;
+        Ok(())
+    }
+}
+
+/// `text` as a terminal sends a paste to a program that enabled bracketed
+/// paste, as agent CLIs do: `pane.send_text` writes text as it is, and
+/// without the markers a line break could submit the input. Line breaks are
+/// sent as `\n` (herdr turns `\r` into `\n` anyway); escape characters are
+/// dropped, so the text cannot end the paste early or control the terminal.
+fn bracketed_paste(text: &str) -> String {
+    let body = text
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .replace('\x1b', "");
+    format!("\x1b[200~{body}\x1b[201~")
 }
 
 impl Inner {
@@ -336,5 +363,23 @@ async fn wait_for_events(connection: &mut Connection) -> Result<(), HerdrError> 
             Some(Message::Response { .. }) => {}
             None => return Err(HerdrError::Protocol("subscription closed".into())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pastes_text_as_one_bracketed_paste() {
+        assert_eq!(
+            bracketed_paste("a.ts:3\r\nfix this\nplease\rnow"),
+            "\x1b[200~a.ts:3\nfix this\nplease\nnow\x1b[201~"
+        );
+        // The text cannot end the paste itself.
+        assert_eq!(
+            bracketed_paste("x\x1b[201~y\x1b[31m"),
+            "\x1b[200~x[201~y[31m\x1b[201~"
+        );
     }
 }

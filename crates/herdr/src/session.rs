@@ -149,6 +149,16 @@ pub(crate) struct SnapshotResult {
 }
 
 impl Session {
+    /// Whether herdr's clients show the workspace of the agent in `pane_id`.
+    pub fn shows_agent(&self, pane_id: &str) -> bool {
+        self.agents
+            .iter()
+            .find(|agent| agent.pane_id == pane_id)
+            .is_some_and(|agent| {
+                self.focused_workspace_id.as_deref() == Some(agent.workspace_id.as_str())
+            })
+    }
+
     pub(crate) fn pane_ids(&self) -> BTreeSet<&str> {
         self.panes
             .iter()

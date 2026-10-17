@@ -76,8 +76,8 @@ test.describe("coding agents in herdr", () => {
     );
     await expect(badge(page, "web")).toHaveAttribute("data-state", "blocked");
     await expect(badge(page, "api")).toHaveCount(0);
-    await expect(agentList(page).getByRole("button")).toHaveCount(1);
-    await expect(agentList(page).getByRole("heading")).toHaveText("Agents 1 needs input");
+    await expect(agentList(page).locator("[data-pane-id]")).toHaveCount(1);
+    await expect(agentList(page).getByRole("heading")).toHaveText("Agents 1 needs you");
 
     // herdr stopped: no badges, and nothing to open.
     await page.evaluate(() =>
@@ -127,7 +127,8 @@ test.describe("coding agents in herdr", () => {
   test("lists every agent in every space, most urgent first", async ({ page }) => {
     await openApp(page, "agents");
     const list = agentList(page);
-    await expect(list.getByRole("heading")).toHaveText("Agents 1 needs input");
+    // One waits for input, two finished and were not seen yet.
+    await expect(list.getByRole("heading")).toHaveText("Agents 3 need you");
     await expect(list.locator(".place")).toHaveText([
       "api · agents",
       "web",
