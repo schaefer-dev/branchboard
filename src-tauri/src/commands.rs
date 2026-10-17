@@ -311,6 +311,42 @@ pub async fn get_branch_commits(
         .await?)
 }
 
+#[tauri::command]
+pub async fn get_history(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    request: git_core::HistoryRequest,
+) -> CommandResult<git_core::HistoryPage> {
+    let git = state.git().await?;
+    let (cancel, cancelled) = tokio::sync::oneshot::channel();
+    // One History pane per app: a newer request drops the previous scan's
+    // future, which kills git through GitRunner's kill-on-drop child.
+    if let Some(previous) = state
+        .history_scan
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .replace(cancel)
+    {
+        let _ = previous.send(());
+    }
+    tokio::select! {
+        result = state.workspace.history(git, &repo_id, &request) => Ok(result?),
+        _ = cancelled => Err(AppError::new(crate::error::AppErrorKind::Internal, "History search superseded.", None)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_history_tip(
+    state: State<'_, AppState>,
+    repo_id: RepoId,
+    reference: String,
+) -> CommandResult<Option<String>> {
+    Ok(state
+        .workspace
+        .history_tip(state.git().await?, &repo_id, &reference)
+        .await?)
+}
+
 /// The files a branch (against the mainline) or a single commit changes.
 #[tauri::command]
 pub async fn get_review_files(

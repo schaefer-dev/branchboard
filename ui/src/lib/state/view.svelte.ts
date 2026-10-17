@@ -1,7 +1,7 @@
 export type WorkList = "changes" | "branches";
 
 /** What the right column shows: the diff or commits of `detail`, or the terminal. */
-export type RightPane = "detail" | "terminal";
+export type RightPane = "detail" | "terminal" | "history";
 
 /** Layout of the middle pane and which of its lists the right pane follows. */
 class ViewStore {
@@ -17,6 +17,12 @@ class ViewStore {
   right = $state<RightPane>("detail");
   /** Asks the terminal to take keyboard focus; counts up per request. */
   terminalFocusRequest = $state(0);
+  historyFocusRequest = $state(0);
+
+  showHistory(): void {
+    this.right = "history";
+    this.historyFocusRequest += 1;
+  }
   /** Asks a list to take keyboard focus; `seq` makes repeated requests distinct. */
   focusRequest = $state<{ list: WorkList; seq: number } | null>(null);
 

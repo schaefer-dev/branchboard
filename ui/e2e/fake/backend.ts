@@ -15,6 +15,8 @@ import type {
   FileChange,
   FileDiff,
   HeadCommit,
+  CommitSummary,
+  HistoryRequest,
   RepoView,
   ReviewDiffRequest,
   ReviewTarget,
@@ -77,6 +79,47 @@ export class FakeBackend {
   /** What each commit made through the fake contains, for undoing it. */
   private committedFiles = new Map<string, FileChange[]>();
   private nextId = 1;
+  private pinnedHistories = new Map<string, CommitSummary[]>();
+  private movedHistoryRefs = new Map<string, CommitSummary>();
+
+  private historyCommits(repoId: string, reference: string): CommitSummary[] {
+    const status = this.state.statuses[repoId];
+    const branch =
+      reference === "HEAD"
+        ? status?.head.kind === "branch"
+          ? status.head.name
+          : ""
+        : reference.slice(11);
+    if (
+      reference !== "HEAD" &&
+      !this.state.branches[repoId]?.branches.some((b) => b.name === branch)
+    )
+      fail("notFound", "The selected history ref no longer exists.");
+    if (reference === "HEAD" && !status?.headOid) return [];
+    const data = this.state.commits[repoId]?.[branch];
+    const actual = [...(data?.ahead.commits ?? []), ...(data?.behind?.commits ?? [])];
+    const head = this.state.history[repoId]?.at(-1);
+    if (reference === "HEAD" && head && actual[0]?.oid !== head.oid)
+      actual.unshift({
+        oid: head.oid,
+        shortOid: head.oid.slice(0, 7),
+        subject: head.message.split("\n")[0] ?? "New commit",
+        author: "Test",
+        authoredAt: now(),
+      });
+    const moved = this.movedHistoryRefs.get(`${repoId}:${reference}`);
+    return [
+      ...(moved ? [moved] : []),
+      ...actual,
+      ...Array.from({ length: 235 - actual.length }, (_, i) => ({
+        oid: fakeOid(`history:${String(i)}:${repoId}:${branch}`),
+        shortOid: fakeOid(`history:${String(i)}:${repoId}:${branch}`).slice(0, 7),
+        subject: i === 220 ? "Historical needle [literal.*]" : `Earlier change ${String(i + 1)}`,
+        author: i === 221 ? "Historical Author" : "Ada",
+        authoredAt: 1_767_225_600 - i * 3600,
+      })),
+    ];
+  }
   /** The fake herdr client: what the app typed, its size and its output channel. */
   private terminal: {
     output: ChannelLike | null;
@@ -195,12 +238,42 @@ export class FakeBackend {
           }
         );
       }
+      case "get_history_tip": {
+        const repo = this.repo(args.repoId);
+        return this.historyCommits(repo.id, String(args.reference))[0]?.oid ?? null;
+      }
+      case "get_history": {
+        const repo = this.repo(args.repoId);
+        const request = args.request as HistoryRequest;
+        const latest = request.tip ? null : this.historyCommits(repo.id, request.reference);
+        const tip = request.tip ?? latest?.[0]?.oid ?? null;
+        if (tip && latest) this.pinnedHistories.set(tip, latest);
+        const all = tip ? (this.pinnedHistories.get(tip) ?? []) : [];
+        const query = request.query.toLowerCase();
+        const matches = all.filter((c) =>
+          [c.subject, c.author, c.oid].some((field) => field.toLowerCase().includes(query)),
+        );
+        const offset = request.cursor?.offset ?? 0;
+        const end = offset + request.limit;
+        return {
+          tip,
+          commits: matches.slice(offset, end),
+          cursor:
+            end < matches.length && tip
+              ? { tip, query, reference: request.reference, offset: end }
+              : null,
+        };
+      }
       case "get_review_files": {
         const repo = this.repo(args.repoId);
         const target = args.target as ReviewTarget;
         const key = target.kind === "branch" ? `branch:${target.name}` : `commit:${target.oid}`;
         return (
           this.state.reviews[repo.id]?.[key] ??
+          (target.kind === "commit" &&
+          [...this.pinnedHistories.values()].some((list) => list.some((c) => c.oid === target.oid))
+            ? { range: { from: target.oid, to: target.oid }, files: [] }
+            : null) ??
           fail("gitFailed", "Git did not respond as expected.", `${key} does not name a commit`)
         );
       }
@@ -306,6 +379,17 @@ export class FakeBackend {
 
   control(): FakeControl {
     return {
+      moveHistoryRef: async (repoId, reference) => {
+        const oid = fakeOid(`moved:${repoId}:${reference}`);
+        this.movedHistoryRefs.set(`${repoId}:${reference}`, {
+          oid,
+          shortOid: oid.slice(0, 7),
+          subject: "New history tip",
+          author: "Bo",
+          authoredAt: now(),
+        });
+        await emit("repo-refs", repoId);
+      },
       calls: () => structuredClone(this.log),
       menu: () => this.lastMenu.map((item) => item.text),
       clickMenu: (text) => {

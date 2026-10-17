@@ -39,9 +39,13 @@ struct Collect {
     summaries: Mutex<Vec<SummaryUpdate>>,
     statuses: Mutex<Vec<StatusUpdate>>,
     fetches: Mutex<Vec<FetchUpdate>>,
+    refs: Mutex<Vec<workspace::RepoId>>,
 }
 
 impl EventSink for Collect {
+    fn refs(&self, id: workspace::RepoId) {
+        self.refs.lock().unwrap().push(id);
+    }
     fn summary(&self, update: SummaryUpdate) {
         self.summaries.lock().unwrap().push(update);
     }
@@ -224,6 +228,55 @@ async fn publishes_status_changes_detected_by_the_watcher() {
         assert!(tokio::time::Instant::now() < deadline, "no status event");
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn invalidates_history_when_an_unchecked_branch_moves_without_status_changes() {
+    let git = git().await;
+    let root = tempfile::tempdir().unwrap();
+    let repo = init_repo(&git, &root.path().join("api")).await;
+    commit_all(&git, &repo).await;
+    commit_all(&git, &repo).await;
+    git.runner()
+        .command(["branch", "topic", "HEAD~1"])
+        .current_dir(&repo)
+        .output()
+        .await
+        .unwrap();
+    let (workspace, events) = open(root.path().join("workspace.json"));
+    let (added, _) = workspace.add_repo(&git, &repo).await.unwrap();
+    workspace.status(&git, added.id()).await.unwrap();
+    let old_tip = workspace
+        .history_tip(&git, added.id(), "refs/heads/topic")
+        .await
+        .unwrap();
+    let initial_refs = events.refs.lock().unwrap().len();
+    let initial_statuses = events.statuses.lock().unwrap().len();
+    git.runner()
+        .command(["update-ref", "refs/heads/topic", "HEAD"])
+        .current_dir(&repo)
+        .output()
+        .await
+        .unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        if events.refs.lock().unwrap().len() > initial_refs {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "no ref invalidation"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(events.statuses.lock().unwrap().len(), initial_statuses);
+    assert_ne!(
+        workspace
+            .history_tip(&git, added.id(), "refs/heads/topic")
+            .await
+            .unwrap(),
+        old_tip
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

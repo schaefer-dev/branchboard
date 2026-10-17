@@ -120,25 +120,7 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             );
             app.manage(state.clone());
 
-            // Discover git in the background so the window shows immediately.
-            // The frontend requests the first summary refresh once it listens
-            // for the results.
-            let discovery = state.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) = discovery.git().await {
-                    tracing::warn!(?error, "git is not available");
-                }
-            });
-
-            // Checks once a minute whether a background fetch is due; the
-            // check itself is a file timestamp read.
-            tauri::async_runtime::spawn(async move {
-                let mut ticker = tokio::time::interval(BACKGROUND_FETCH_CHECK);
-                loop {
-                    ticker.tick().await;
-                    state.spawn_background_fetch();
-                }
-            });
+            start_background_tasks(state);
             Ok(())
         })
         .on_window_event(on_window_event)
@@ -169,6 +151,8 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::open_in_editor,
             commands::get_branches,
             commands::get_branch_commits,
+            commands::get_history,
+            commands::get_history_tip,
             commands::get_review_files,
             commands::get_review_diff,
             commands::switch_branch,
@@ -190,6 +174,25 @@ pub fn build<R: Runtime>(builder: tauri::Builder<R>, options: AppOptions) -> tau
             commands::terminal_resize,
             commands::terminal_close,
         ])
+}
+
+fn start_background_tasks(state: AppState) {
+    // Discover git without delaying the window. The frontend subscribes
+    // before requesting its first summary refresh.
+    let discovery = state.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = discovery.git().await {
+            tracing::warn!(?error, "git is not available");
+        }
+    });
+    // Once a minute, check whether a background fetch is due.
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(BACKGROUND_FETCH_CHECK);
+        loop {
+            ticker.tick().await;
+            state.spawn_background_fetch();
+        }
+    });
 }
 
 /// Window focus refreshes what may have changed while the app was in the

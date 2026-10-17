@@ -8,7 +8,7 @@ import type { DiffLine, RepoId } from "../api";
  * (`review:` and the review target's key). Only a diff from the same source
  * can tell that a comment's lines changed.
  */
-export type CommentSource = "unstaged" | "staged" | `review:${string}`;
+export type CommentSource = "unstaged" | "staged" | `review:${string}` | `history:${string}`;
 
 /** A diff on screen that comments can be added to. */
 export interface CommentTarget {

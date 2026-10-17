@@ -27,6 +27,7 @@ const MIN_INTERVAL: Duration = Duration::from_millis(300);
 pub(crate) struct Monitor {
     sink: Arc<dyn EventSink>,
     cache: Mutex<HashMap<RepoId, StatusSnapshot>>,
+    refs_cache: Mutex<HashMap<RepoId, Vec<u8>>>,
     watched: Mutex<Option<Watched>>,
     /// Held while the index or working tree is being changed, so refreshes
     /// never observe a half-finished operation.
@@ -55,6 +56,7 @@ impl Monitor {
         Arc::new(Self {
             sink,
             cache: Mutex::new(HashMap::new()),
+            refs_cache: Mutex::new(HashMap::new()),
             watched: Mutex::new(None),
             writes: tokio::sync::Mutex::new(()),
         })
@@ -104,6 +106,7 @@ impl Monitor {
     /// Stops watching and forgets the cached status of `repo_id`.
     pub(crate) fn forget(&self, repo_id: &RepoId) {
         lock(&self.cache).remove(repo_id);
+        lock(&self.refs_cache).remove(repo_id);
         let mut watched = lock(&self.watched);
         if watched.as_ref().is_some_and(|w| &w.repo_id == repo_id) {
             *watched = None;
@@ -118,6 +121,29 @@ impl Monitor {
         path: &Path,
     ) -> Result<StatusSnapshot, GitError> {
         let status = git.status(path).await?;
+        // Local refs can move without affecting HEAD or worktree status.
+        // Compare one cheap machine-readable ref listing, rather than asking
+        // the UI to reload branch counts for every ordinary file edit.
+        match git
+            .runner()
+            .command([
+                "for-each-ref",
+                "--format=%(refname)%00%(objectname)",
+                "refs/heads/",
+            ])
+            .current_dir(path)
+            .output()
+            .await
+        {
+            Ok(output) => {
+                let previous =
+                    lock(&self.refs_cache).insert(repo_id.clone(), output.stdout.clone());
+                if previous.as_ref() != Some(&output.stdout) {
+                    self.sink.refs(repo_id.clone());
+                }
+            }
+            Err(error) => tracing::warn!(?error, "history ref invalidation failed"),
+        }
         self.publish(repo_id, &status);
         Ok(status)
     }

@@ -55,6 +55,7 @@
   // The review follows the branch under the cursor of the branch list; only
   // these two inputs are tracked, not the review state `follow` updates.
   $effect(() => {
+    if (view.right !== "detail") return;
     const repoId = branches.repoId;
     const commits = branches.commits;
     untrack(() => {

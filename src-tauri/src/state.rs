@@ -42,6 +42,7 @@ pub struct Inner {
     focused: AtomicBool,
     editor_override: Option<PathBuf>,
     pub terminal: Terminal,
+    pub history_scan: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     /// The right column shows the terminal (not the diff).
     terminal_visible: AtomicBool,
     /// Where the embedded client's herdr config is written.
@@ -90,6 +91,7 @@ impl AppState {
             herdr,
             agents: tokio::sync::Mutex::new(None),
             git: OnceCell::new(),
+            history_scan: Mutex::new(None),
             last_focus_refresh: Mutex::new(None),
             focused: AtomicBool::new(true),
             editor_override: paths.editor,

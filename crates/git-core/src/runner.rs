@@ -6,7 +6,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 use crate::GitError;
 
@@ -102,6 +102,92 @@ pub struct GitOutput {
 }
 
 impl GitCommand<'_> {
+    /// Streams NUL-delimited fields. Returning false stops and reaps git;
+    /// dropping this future also kills it. Memory is bounded independently of
+    /// history length (individual fields over 8 MiB are rejected).
+    pub async fn visit_nul(
+        self,
+        mut visit: impl FnMut(&[u8]) -> Result<bool, GitError>,
+    ) -> Result<(), GitError> {
+        let mut command = tokio::process::Command::new(self.runner.program.as_path());
+        command
+            .args(GLOBAL_ARGS)
+            .args(&self.args)
+            .env("PATH", self.runner.search_path.as_os_str())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if let Some(cwd) = &self.cwd {
+            command.current_dir(cwd);
+        }
+        if self.untranslated {
+            command.env("LC_ALL", "C");
+        }
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+        let mut child = command.spawn().map_err(GitError::Spawn)?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| GitError::Parse("missing stdout pipe".into()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| GitError::Parse("missing stderr pipe".into()))?;
+        let read = async {
+            let mut reader = BufReader::new(stdout);
+            let result = async {
+                loop {
+                    let mut field = Vec::new();
+                    let count = (&mut reader)
+                        .take(8 * 1024 * 1024 + 1)
+                        .read_until(0, &mut field)
+                        .await
+                        .map_err(GitError::Spawn)?;
+                    if count == 0 {
+                        break;
+                    }
+                    if field.len() > 8 * 1024 * 1024 || field.pop() != Some(0) {
+                        return Err(GitError::Parse("invalid or oversized history field".into()));
+                    }
+                    if !visit(&field)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            .await;
+            // A parser error must also kill git before waiting for stderr:
+            // otherwise a full stdout pipe can stall the drain until timeout.
+            if !matches!(result, Ok(true)) {
+                child.kill().await.map_err(GitError::Spawn)?;
+                return result.map(|_| ());
+            }
+            let status = child.wait().await.map_err(GitError::Spawn)?;
+            if !status.success() {
+                return Err(GitError::Failed {
+                    command: self.display_args(),
+                    code: status.code(),
+                    stderr: "History is unavailable; refresh to resolve the ref again.".into(),
+                });
+            }
+            Ok(())
+        };
+        let drain = async {
+            let mut reader = stderr;
+            let mut buffer = [0; 4096];
+            while reader.read(&mut buffer).await.unwrap_or(0) != 0 {}
+        };
+        tokio::time::timeout(self.timeout, async { tokio::join!(read, drain).0 })
+            .await
+            .map_err(|_| GitError::Timeout {
+                command: self.display_args(),
+                timeout: self.timeout,
+            })?
+    }
+
     /// Appends further arguments, e.g. paths after a `--` separator.
     pub fn args<I, S>(mut self, args: I) -> Self
     where

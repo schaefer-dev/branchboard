@@ -9,8 +9,16 @@
   import ReviewPane from "../branches/ReviewPane.svelte";
   import ReviewBar from "../comments/ReviewBar.svelte";
   import DiffPane from "../diff/DiffPane.svelte";
+  import HistoryPane from "../history/HistoryPane.svelte";
+  import { history } from "../../lib/state/history.svelte";
 
   const showTerminal = $derived(terminal.available && view.right === "terminal");
+  const showHistory = $derived(view.right === "history");
+  $effect(() => {
+    const repo = workspace.activeRepo;
+    const visible = showHistory;
+    untrack(() => history.show(repo && !repo.missing ? repo.id : null, visible));
+  });
   /** The terminal starts when first shown and then stays, hidden or not. */
   let started = $state(false);
   $effect(() => {
@@ -49,7 +57,11 @@
 </script>
 
 <div class="right">
-  <div class="pane detail" class:hidden={showTerminal}>
+  <div
+    class="pane detail"
+    class:hidden={showTerminal || showHistory}
+    inert={showTerminal || showHistory}
+  >
     {#if view.detail === "branches"}
       <ReviewPane />
     {:else}
@@ -57,6 +69,15 @@
     {/if}
     <ReviewBar />
   </div>
+  {#if showHistory || history.current?.initialized}
+    <div class="pane detail" class:hidden={!showHistory} inert={!showHistory}>
+      {#key history.current?.repoId}<HistoryPane
+          session={history.current}
+          visible={showHistory}
+        />{/key}
+      <ReviewBar />
+    </div>
+  {/if}
   {#if started}
     <!-- xterm.js loads with the first use of the terminal, not at startup. -->
     {#await import("../terminal/TerminalPane.svelte") then { default: TerminalPane }}

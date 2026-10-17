@@ -16,6 +16,8 @@ import type { FileDiff } from "./generated/FileDiff";
 import type { GitInfo } from "./generated/GitInfo";
 import type { GroupId } from "./generated/GroupId";
 import type { HeadCommit } from "./generated/HeadCommit";
+import type { HistoryPage } from "./generated/HistoryPage";
+import type { HistoryRequest } from "./generated/HistoryRequest";
 import type { RepoId } from "./generated/RepoId";
 import type { ReviewDiffRequest } from "./generated/ReviewDiffRequest";
 import type { ReviewFiles } from "./generated/ReviewFiles";
@@ -70,6 +72,10 @@ export const api = {
     call<null>("open_in_editor", { repoId, path, line }),
 
   getBranches: (repoId: RepoId) => call<BranchList>("get_branches", { repoId }),
+  getHistory: (repoId: RepoId, request: HistoryRequest) =>
+    call<HistoryPage>("get_history", { repoId, request }),
+  getHistoryTip: (repoId: RepoId, reference: string) =>
+    call<string | null>("get_history_tip", { repoId, reference }),
   getBranchCommits: (repoId: RepoId, branch: string) =>
     call<BranchCommits>("get_branch_commits", { repoId, branch }),
   /** A branch is reviewed from its merge base with the mainline, a commit against its parent. */

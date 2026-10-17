@@ -64,7 +64,9 @@ function compose(
 test.describe("embedded terminal", () => {
   test("is not offered without herdr", async ({ page }) => {
     await openApp(page);
-    await expect(page.getByRole("group", { name: "Right pane" })).toHaveCount(0);
+    const switcher = page.getByRole("group", { name: "Right pane" });
+    await expect(switcher.getByRole("button", { name: "History", exact: true })).toBeVisible();
+    await expect(switcher.getByRole("button", { name: "Terminal", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Terminal" })).toHaveCount(0);
   });
 

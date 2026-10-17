@@ -18,6 +18,7 @@
   import { branches } from "./lib/state/branches.svelte";
   import { changes } from "./lib/state/changes.svelte";
   import { commit } from "./lib/state/commit.svelte";
+  import { history } from "./lib/state/history.svelte";
   import { notices } from "./lib/state/notices.svelte";
   import { terminal } from "./lib/state/terminal.svelte";
   import { workspace } from "./lib/state/workspace.svelte";
@@ -34,6 +35,7 @@
       changes.init(),
       branches.init(),
       commit.init(),
+      history.init(),
       workspace.init(),
       agents.init(),
       terminal.init(),
@@ -84,7 +86,10 @@
 <svelte:window
   onkeydown={onKeydown}
   oncontextmenu={onContextMenu}
-  onfocus={() => void branches.reload()}
+  onfocus={() => {
+    void branches.reload();
+    history.checkFreshness();
+  }}
 />
 
 <div class="app">

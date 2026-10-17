@@ -40,6 +40,9 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
   messages are kept per repository.
 - **Review whole branches.** Select a branch to see everything it adds since it left the
   comparison branch, file by file. You can also review single commits, ahead or behind.
+- **Browse full history.** Open History for HEAD or any local branch without checking it out.
+  Search messages, authors or hashes across the whole history, load 100 commits at a time,
+  and inspect files, diffs and comments. Ref changes offer Refresh without disrupting your review.
 - **Know where branches stand.** View ahead/behind counts against a configurable comparison
   branch, and switch branches. Fetch manually or in the background.
 - **Stay on the keyboard.** Use the command palette and shortcuts to navigate, fetch, or open
@@ -129,6 +132,7 @@ Use `⌘` on macOS and `Ctrl` on Windows.
 | Open in VS Code        | `⌘ Shift E` | `Ctrl Shift E` |
 | Next agent needing you | `⌘ J`       | `Ctrl Shift J` |
 | Write commit message   | `⌘ 3`       | `Ctrl 3`       |
+| Show history           | `⌘ 4`       | `Ctrl 4`       |
 | Commit                 | `⌘ Enter`   | `Ctrl Enter`   |
 
 ## Current scope

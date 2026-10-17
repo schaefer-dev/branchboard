@@ -15,6 +15,7 @@
     /** Width of the scrollable content, e.g. for long diff lines. */
     contentWidth?: string;
     overscan?: number;
+    scrollTop?: number;
   }
 
   let {
@@ -25,12 +26,15 @@
     row,
     contentWidth,
     overscan = 10,
+    scrollTop = $bindable(0),
     class: className = "",
     ...rest
   }: Props = $props();
 
   let viewport = $state<HTMLDivElement>();
-  let scrollTop = $state(0);
+  $effect(() => {
+    if (viewport && viewport.scrollTop !== scrollTop) viewport.scrollTop = scrollTop;
+  });
   let height = $state(0);
   let width = $state(0);
   /** Rendered heights of measured items, by key. */
@@ -121,12 +125,12 @@
 
 <div
   bind:this={viewport}
-  bind:clientHeight={height}
-  bind:clientWidth={width}
-  class="viewport {className}"
   onscroll={() => {
     scrollTop = viewport?.scrollTop ?? 0;
   }}
+  bind:clientHeight={height}
+  bind:clientWidth={width}
+  class="viewport {className}"
   {...rest}
 >
   <div

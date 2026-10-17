@@ -32,6 +32,10 @@ pub fn emit<R: Runtime>(app: &AppHandle<R>, event: &str, payload: impl Serialize
 }
 
 impl<R: Runtime> EventSink for TauriEvents<R> {
+    fn refs(&self, repo_id: workspace::RepoId) {
+        self.emit("repo-refs", repo_id);
+    }
+
     fn summary(&self, update: SummaryUpdate) {
         self.emit(REPO_SUMMARY, update);
     }

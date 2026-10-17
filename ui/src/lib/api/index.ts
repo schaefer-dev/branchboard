@@ -1,6 +1,16 @@
 export { api } from "./commands";
 export { CommandError, toAppError } from "./client";
-export { onAlertOpened, onRepoAgents, onRepoFetch, onRepoStatus, onRepoSummary } from "./events";
+export {
+  onAlertOpened,
+  onRepoAgents,
+  onRepoFetch,
+  onRepoStatus,
+  onRepoSummary,
+  onRepoRefs,
+} from "./events";
+export type { HistoryPage } from "./generated/HistoryPage";
+export type { HistoryRequest } from "./generated/HistoryRequest";
+export type { HistoryCursor } from "./generated/HistoryCursor";
 
 export type { AddRepoResult } from "./generated/AddRepoResult";
 export type { AgentRow } from "./generated/AgentRow";

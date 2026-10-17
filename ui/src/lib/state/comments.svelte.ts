@@ -3,6 +3,7 @@ import { agents } from "./agents.svelte";
 import { branches } from "./branches.svelte";
 import { itemKey } from "./changes-model";
 import { changes } from "./changes.svelte";
+import { history } from "./history.svelte";
 import {
   byPlace,
   formatReview,
@@ -170,6 +171,10 @@ export class CommentsStore {
       view.focus("changes");
       const key = itemKey(comment.source, comment.path);
       if (changes.items.some((item) => item.key === key)) changes.select(key);
+    } else if (comment.source.startsWith("history:")) {
+      history.show(comment.repoId, true);
+      history.current?.reveal(comment.source.slice("history:".length), comment.path);
+      view.showHistory();
     } else {
       view.focus("branches");
       const key = comment.source.slice("review:".length);

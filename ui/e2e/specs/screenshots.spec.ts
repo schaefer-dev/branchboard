@@ -94,6 +94,22 @@ for (const scheme of schemes) {
       await capture(page, info.project.name, "review", scheme);
     });
 
+    test("history", async ({ page }, info) => {
+      await openApp(page);
+      await page.getByRole("button", { name: "History", exact: true }).click();
+      const history = page.getByRole("region", { name: "History", exact: true });
+      await expect
+        .poll(
+          async () =>
+            (await history.getByRole("listbox", { name: "History commits" }).boundingBox())
+              ?.height ?? 0,
+        )
+        .toBeGreaterThan(100);
+      await expect(history.getByRole("listbox", { name: "Files in history commit" })).toBeVisible();
+      await expect(history.locator(".hunk").first()).toBeVisible();
+      await capture(page, info.project.name, "history", scheme);
+    });
+
     test("quick switcher", async ({ page }, info) => {
       await openApp(page);
       await page.keyboard.press(`${await mod(page)}+p`);

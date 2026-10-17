@@ -43,6 +43,8 @@ pub trait EventSink: Send + Sync + 'static {
     fn summary(&self, update: SummaryUpdate);
     fn status(&self, update: StatusUpdate);
     fn fetch(&self, update: FetchUpdate);
+    /// Debounced watcher invalidation, even when worktree status is unchanged.
+    fn refs(&self, _repo_id: RepoId) {}
 }
 
 pub struct Workspace {
@@ -185,6 +187,26 @@ impl Workspace {
         }
         let sources = git.diff_sources(&path, request).await?;
         self.highlight(&request.path, diff, sources).await
+    }
+
+    pub async fn history(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        request: &git_core::HistoryRequest,
+    ) -> Result<git_core::HistoryPage, WorkspaceError> {
+        Ok(git.history(&self.repo_path(id).await?, request).await?)
+    }
+
+    pub async fn history_tip(
+        &self,
+        git: &Git,
+        id: &RepoId,
+        reference: &str,
+    ) -> Result<Option<String>, WorkspaceError> {
+        Ok(git
+            .history_tip(&self.repo_path(id).await?, reference)
+            .await?)
     }
 
     /// The commits a review compares and the files that differ between them.

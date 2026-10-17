@@ -76,6 +76,15 @@ export function registerAppCommands(dialogs: Dialogs): () => void {
       run: () => branches.fetch(),
     }),
     commands.register({
+      id: "history.show",
+      title: "Show history",
+      shortcut: { key: "4", mod: true },
+      enabled: () => usableRepo() !== null,
+      run: () => {
+        view.showHistory();
+      },
+    }),
+    commands.register({
       id: "editor.open",
       title: "Open in VS Code",
       shortcut: { key: "e", mod: true, shift: true },

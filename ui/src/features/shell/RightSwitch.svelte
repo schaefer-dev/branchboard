@@ -9,15 +9,21 @@
   );
 </script>
 
-{#if terminal.available}
-  <div class="switch" role="group" aria-label="Right pane">
-    <button
-      type="button"
-      aria-pressed={view.right === "detail"}
-      onclick={() => (view.right = "detail")}
-    >
-      {detailLabel}
-    </button>
+<div class="switch" role="group" aria-label="Right pane">
+  <button
+    type="button"
+    aria-pressed={view.right === "detail"}
+    onclick={() => (view.right = "detail")}
+  >
+    {detailLabel}
+  </button>
+  <button
+    type="button"
+    aria-pressed={view.right === "history"}
+    title="History (Cmd/Ctrl+4)"
+    onclick={() => view.showHistory()}>History</button
+  >
+  {#if terminal.available}
     <button
       type="button"
       aria-pressed={view.right === "terminal"}
@@ -28,8 +34,8 @@
     >
       Terminal
     </button>
-  </div>
-{/if}
+  {/if}
+</div>
 
 <style>
   .switch {

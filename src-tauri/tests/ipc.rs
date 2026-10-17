@@ -864,6 +864,40 @@ fn reviews_branches_and_commits() {
     assert_eq!(refused["kind"], "invalidInput");
 }
 
+#[test]
+fn history_commands_pin_pages_and_validate_requests() {
+    let harness = Harness::new();
+    let repo = branch_repo(&harness);
+    let id = harness.add(&repo);
+    let tip = harness.ok(
+        "get_history_tip",
+        json!({"repoId": id, "reference": "HEAD"}),
+    );
+    let mut request =
+        json!({ "reference": "HEAD", "query": "", "tip": null, "cursor": null, "limit": 1 });
+    let first = harness.ok("get_history", json!({"repoId": id, "request": request}));
+    assert_eq!(first["tip"], tip);
+    assert_eq!(first["commits"].as_array().unwrap().len(), 1);
+    request["tip"] = first["tip"].clone();
+    request["cursor"] = first["cursor"].clone();
+    let next = harness.ok("get_history", json!({"repoId": id, "request": request}));
+    assert_ne!(first["commits"][0]["oid"], next["commits"][0]["oid"]);
+    request["query"] = json!("other");
+    assert!(
+        harness
+            .invoke("get_history", json!({"repoId": id, "request": request}))
+            .is_err()
+    );
+    assert!(
+        harness
+            .invoke(
+                "get_history_tip",
+                json!({"repoId": id, "reference": "--all"})
+            )
+            .is_err()
+    );
+}
+
 /// The review of `target`, and the diff of each of its files keyed by
 /// `<from>..<to>:<path>`.
 fn record_review(

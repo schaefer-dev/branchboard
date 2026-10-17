@@ -23,11 +23,17 @@ export class ReviewStore {
   fileCursor = $state<string | null>(null);
   diff = $state<DiffState>({ status: "idle" });
 
-  readonly targets = $derived(this.commits ? reviewTargets(this.commits) : []);
-  readonly targetKey = $derived(this.target ? targetKey(this.target) : null);
-  readonly cursorFile = $derived(
-    this.files?.files.find((file) => file.path === this.fileCursor) ?? null,
-  );
+  // Getters deliberately have no effect-owner lifetime: independent instances
+  // may be created from a component effect and retained in the History cache.
+  get targets() {
+    return this.commits ? reviewTargets(this.commits) : [];
+  }
+  get targetKey() {
+    return this.target ? targetKey(this.target) : null;
+  }
+  get cursorFile() {
+    return this.files?.files.find((file) => file.path === this.fileCursor) ?? null;
+  }
 
   private filesToken = 0;
   private diffToken = 0;
@@ -89,6 +95,10 @@ export class ReviewStore {
     const repoId = this.repoId;
     const target = this.target;
     const token = ++this.filesToken;
+    ++this.diffToken;
+    this.filesError = null;
+    this.files = null;
+    this.diff = { status: "idle" };
     if (!repoId || !target) {
       this.files = null;
       this.diff = { status: "idle" };

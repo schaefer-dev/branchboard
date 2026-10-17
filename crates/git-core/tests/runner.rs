@@ -79,3 +79,36 @@ async fn accepts_configured_success_codes() {
     assert_eq!(output.exit_code, 1);
     assert!(String::from_utf8_lossy(&output.stdout).contains("+two"));
 }
+
+#[tokio::test]
+async fn streaming_stops_and_reaps_git_on_lookahead_and_parser_errors() {
+    let repo = support::TestRepo::init().await;
+    // More output than a pipe can hold, so failing to kill on a parser error
+    // would deadlock against the undrained stdout pipe.
+    for i in 0..1000 {
+        repo.write(format!("{i:04}-{}", "x".repeat(150)), "");
+    }
+    let mut fields = 0;
+    repo.git
+        .runner()
+        .command(["ls-files", "--others", "-z"])
+        .current_dir(repo.path())
+        .timeout(std::time::Duration::from_secs(5))
+        .visit_nul(|_| {
+            fields += 1;
+            Ok(false)
+        })
+        .await
+        .unwrap();
+    assert_eq!(fields, 1);
+    let error = repo
+        .git
+        .runner()
+        .command(["ls-files", "--others", "-z"])
+        .current_dir(repo.path())
+        .timeout(std::time::Duration::from_secs(5))
+        .visit_nul(|_| Err(GitError::Parse("test parser error".into())))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, GitError::Parse(_)), "{error:?}");
+}

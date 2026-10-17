@@ -7,6 +7,13 @@ import type { AgentsSnapshot } from "./generated/AgentsSnapshot";
 import type { FetchUpdate } from "./generated/FetchUpdate";
 import type { StatusUpdate } from "./generated/StatusUpdate";
 import type { SummaryUpdate } from "./generated/SummaryUpdate";
+import type { RepoId } from "./generated/RepoId";
+
+export function onRepoRefs(handler: (repoId: RepoId) => void): Promise<UnlistenFn> {
+  return listen<RepoId>("repo-refs", (event) => {
+    handler(event.payload);
+  });
+}
 
 export function onRepoSummary(handler: (update: SummaryUpdate) => void): Promise<UnlistenFn> {
   return listen<SummaryUpdate>("repo-summary", (event) => {

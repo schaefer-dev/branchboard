@@ -10,6 +10,7 @@ mod commit;
 mod diff;
 mod discovery;
 mod error;
+mod history;
 mod log;
 mod repository;
 mod review;
@@ -28,6 +29,7 @@ pub use diff::{
 };
 pub use discovery::DiscoveryOptions;
 pub use error::GitError;
+pub use history::{HistoryCursor, HistoryPage, HistoryRequest};
 pub use log::{CommitList, CommitSummary};
 pub use review::{ReviewDiffRequest, ReviewFile, ReviewFiles, ReviewRange, ReviewTarget};
 pub use runner::{GitCommand, GitOutput, GitRunner};

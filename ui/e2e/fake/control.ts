@@ -46,6 +46,8 @@ export interface FakeControl {
   replaceStatus(repoId: string, unstagedPaths: string[]): Promise<void>;
   /** Replaces a working-tree diff and emits a status invalidation. */
   replaceDiff(repoId: string, key: string, diff: FileDiff): Promise<void>;
+  /** Moves a ref without changing worktree status or checking it out. */
+  moveHistoryRef(repoId: string, reference: string): Promise<void>;
 }
 
 declare global {
