@@ -176,12 +176,20 @@ git tag -a v0.1.0 -m "Branchboard 0.1.0"
 git push origin v0.1.0
 ```
 
-The Release workflow runs the existing CI checks, then builds Apple Silicon and Intel
-macOS bundles and the Windows x64 installer. The Windows job verifies installation,
+The Release workflow runs CI checks **in parallel with** building Apple Silicon and Intel
+macOS bundles and the Windows x64 installer. Failed checks remain failures, but do not
+block installer creation. The Windows job verifies installation,
 reinstallation, the installed app, and uninstallation as a temporary standard user.
-All bundles are uploaded to one **draft** release. A failed build or installer check
-can leave a partial draft; publish only after the workflow succeeds and all platform
-installers are present. Open the draft, review its notes and assets, then publish it.
+All bundles are uploaded to one **draft** release. Installers and the raw Windows executable
+(when built) are also retained for 30 days in `release-build-<tag>-<target>` workflow artifacts,
+even if release upload, packaging, or later verification fails. Compilation must still succeed
+to produce an executable; the raw executable is not an installer and requires WebView2.
+
+Artifact availability does **not** mean validation passed. A failed build or installer check
+can leave a partial draft. Normally publish only after the workflow succeeds and all platform
+installers are present. If intentionally sharing a build with failed validation, publish it as
+a **prerelease** and describe the failed checks and known limitations. Publication is always
+manual: review the workflow results, notes and assets first.
 
 For a transient failure, select **Re-run failed jobs** in Actions, or run:
 

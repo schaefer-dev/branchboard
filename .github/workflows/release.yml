@@ -25,7 +25,8 @@ jobs:
 
   prepare:
     name: Prepare draft release
-    needs: check
+    # Build artifacts independently of validation. Failed checks still fail
+    # the workflow, but do not prevent installers from reaching the draft.
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -130,6 +131,21 @@ jobs:
           releaseDraft: true
           uploadUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # Keep local build outputs even if uploading to GitHub Releases or a
+      # later installer/smoke test fails. A compiler failure cannot produce
+      # an executable, but a packaging failure may still leave a usable one.
+      - name: Preserve installers and Windows executable
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-build-${{ inputs.tag || github.ref_name }}-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            target/${{ matrix.target }}/release/branchboard.exe
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Install tauri-driver
         if: runner.os == 'Windows'
