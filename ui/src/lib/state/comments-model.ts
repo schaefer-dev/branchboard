@@ -15,6 +15,8 @@ export interface CommentTarget {
   repoId: RepoId;
   path: string;
   source: CommentSource;
+  /** Branch whose commit list contained the review target. */
+  reviewBranch?: string;
 }
 
 /** The old side holds removed lines, the new side added ones; context lines are on both. */
@@ -36,6 +38,7 @@ export interface ReviewComment {
   repoId: RepoId;
   path: string;
   source: CommentSource;
+  reviewBranch?: string;
   /** `null` for a comment on the whole file. */
   lines: LineRange | null;
   body: string;
@@ -166,7 +169,8 @@ export function formatReview(comments: readonly ReviewComment[]): string {
       const parts = [commentPlace(comment)];
       if (comment.lines) {
         const code = comment.lines.quoted.join("\n");
-        const fence = code.includes("```") ? "````" : "```";
+        const runs = code.match(/`+/g) ?? [];
+        const fence = "`".repeat(Math.max(3, ...runs.map((run) => run.length + 1)));
         parts.push(`${fence}${fenceLanguage(comment.path)}\n${code}\n${fence}`);
       }
       parts.push(comment.body.trim());

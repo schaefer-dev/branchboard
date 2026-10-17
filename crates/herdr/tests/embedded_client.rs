@@ -196,6 +196,18 @@ fn pastes_into_a_pane_without_submitting() {
     ]);
     std::thread::sleep(Duration::from_millis(500));
 
+    server.run(&[
+        "pane",
+        "report-agent",
+        &pane,
+        "--source",
+        "branchboard-test",
+        "--agent",
+        "claude",
+        "--state",
+        "idle",
+    ]);
+
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let link = herdr::HerdrLink::new(Some(Endpoint::new(server.socket())), Arc::new(NoSink));
     runtime

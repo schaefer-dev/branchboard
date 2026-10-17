@@ -235,11 +235,17 @@ export class FakeBackend {
       case "get_agents":
         return structuredClone(this.state.agents);
       case "focus_agent":
-      case "paste_to_agent":
         if (!this.state.agents.agents.some((agent) => agent.paneId === args.paneId)) {
           fail("herdrFailed", "herdr reported an error.", "not_found: agent not found");
         }
         return null;
+      case "paste_to_agent": {
+        const agent = this.state.agents.agents.find((agent) => agent.paneId === args.paneId);
+        if (!agent || agent.state === "blocked" || agent.state === "unknown") {
+          fail("herdrFailed", "The agent is not ready to receive a review.");
+        }
+        return null;
+      }
       case "set_terminal_visible":
         return null;
       case "terminal_info":
@@ -359,6 +365,15 @@ export class FakeBackend {
         status.unstaged = sortUnstaged(
           unstagedPaths.map((path) => ({ path, origPath: null, kind: "modified" })),
         );
+        await emit("repo-status", { repoId, status });
+      },
+      replaceDiff: async (repoId, key, diff) => {
+        this.diffsOf(repoId)[key] = diff;
+        const status = structuredClone(this.status(repoId));
+        // Like an external edit, change the status metadata so the store
+        // reloads the file rather than suppressing a duplicate snapshot.
+        status.headOid = fakeOid(`updated-${String(this.nextId++)}`);
+        this.state.statuses[repoId] = status;
         await emit("repo-status", { repoId, status });
       },
     };
@@ -671,6 +686,7 @@ interface ChannelLike {
 
 interface MenuOptions {
   text?: string;
+  enabled?: boolean;
   items?: MenuOptions[];
   handler?: ChannelLike;
 }
@@ -682,7 +698,7 @@ function flattenMenu(options: unknown, prefix = ""): MenuItem[] {
     const text = `${prefix}${item.text}`;
     const own: MenuItem = { text };
     const handler = item.handler;
-    if (handler && !item.items) {
+    if (handler && !item.items && item.enabled !== false) {
       own.run = () => {
         handler.onmessage(text);
       };

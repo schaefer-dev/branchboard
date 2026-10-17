@@ -22,10 +22,10 @@
     const [only, ...others] = candidates;
     if (!only) return;
     if (others.length === 0) {
-      if (only.state === "blocked") {
+      if (only.state === "blocked" || only.state === "unknown") {
         notices.show(
           "info",
-          `${agentName(only.agent)} is waiting for input. Answer it first, then send the review.`,
+          `${agentName(only.agent)} is not ready for a review. Check its terminal first.`,
         );
       } else {
         await comments.pasteTo(repoId, only.paneId);
@@ -37,7 +37,7 @@
         kind: "item",
         text: agentChoice(agent),
         // Pasted text could answer the question the agent is asking.
-        enabled: agent.state !== "blocked",
+        enabled: agent.state !== "blocked" && agent.state !== "unknown",
         run: () => void comments.pasteTo(repoId, agent.paneId),
       })),
     );
@@ -86,13 +86,13 @@
         <button
           type="button"
           class="btn"
-          disabled={pending === 0}
+          disabled={pending === 0 || comments.busy}
           onclick={() => void comments.copy(repoId)}>Copy review</button
         >
         <button
           type="button"
           class="btn btn-primary"
-          disabled={pending === 0}
+          disabled={pending === 0 || comments.busy}
           title="Paste the pending comments into the agent's input"
           onclick={() => void send(repoId)}>Send review</button
         >
@@ -100,7 +100,7 @@
         <button
           type="button"
           class="btn btn-primary"
-          disabled={pending === 0}
+          disabled={pending === 0 || comments.busy}
           title="Copy the pending comments as one prompt"
           onclick={() => void comments.copy(repoId)}>Copy review</button
         >

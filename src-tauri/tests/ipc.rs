@@ -1245,12 +1245,28 @@ fn pastes_into_an_agent_without_submitting() {
     let HerdrSetup { fake, harness, .. } = herdr_setup();
     harness.ok(
         "paste_to_agent",
-        json!({ "paneId": "w1:p2", "text": "src/a.ts:3\nRename this." }),
+        json!({ "paneId": "w1:p1", "text": "src/a.ts:3\nRename this." }),
     );
     assert_eq!(
         fake.requests("pane.send_text"),
-        [json!({ "pane_id": "w1:p2", "text": "\u{1b}[200~src/a.ts:3\nRename this.\u{1b}[201~" })]
+        [json!({ "pane_id": "w1:p1", "text": "\u{1b}[200~src/a.ts:3\nRename this.\u{1b}[201~" })]
     );
+}
+
+#[test]
+fn refuses_to_paste_into_blocked_or_missing_agents() {
+    let HerdrSetup { fake, harness, .. } = herdr_setup();
+    for pane in ["w1:p2", "missing"] {
+        assert!(
+            harness
+                .invoke(
+                    "paste_to_agent",
+                    json!({ "paneId": pane, "text": "Review" })
+                )
+                .is_err()
+        );
+    }
+    assert_eq!(fake.requests("pane.send_text"), Vec::<Value>::new());
 }
 
 #[test]

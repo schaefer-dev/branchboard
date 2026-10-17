@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
 
   import type { CommitList, CommitSummary, ReviewTarget } from "../../lib/api";
+  import { showContextMenu } from "../../lib/platform/menu";
   import { branches } from "../../lib/state/branches.svelte";
   import { timeAgo } from "../../lib/state/branches-model";
   import { splitPath } from "../../lib/state/changes-model";
@@ -35,7 +36,9 @@
   const commentTarget = $derived.by((): CommentTarget | null => {
     const repoId = review.repoId;
     const key = review.targetKey;
-    return file && repoId && key ? { repoId, path: file.path, source: `review:${key}` } : null;
+    return file && repoId && key
+      ? { repoId, path: file.path, source: `review:${key}`, reviewBranch: data?.branch }
+      : null;
   });
   const selectedCommit = $derived.by((): CommitSummary | null => {
     const target = review.target;
@@ -89,6 +92,23 @@
     const element = event.target instanceof Element ? event.target.closest("[data-key]") : null;
     if (element instanceof HTMLElement && element.dataset.key)
       review.selectFile(element.dataset.key);
+  }
+
+  function onFilesContextMenu(event: MouseEvent) {
+    const element = event.target instanceof Element ? event.target.closest("[data-key]") : null;
+    const path = element instanceof HTMLElement ? element.dataset.key : undefined;
+    if (!path || !review.repoId || !review.targetKey) return;
+    event.preventDefault();
+    const target: CommentTarget = {
+      repoId: review.repoId,
+      path,
+      source: `review:${review.targetKey}`,
+      reviewBranch: data?.branch,
+    };
+    review.selectFile(path);
+    void showContextMenu([
+      { kind: "item", text: "Comment on file", run: () => comments.start(target, null) },
+    ]);
   }
 </script>
 
@@ -225,6 +245,7 @@
           aria-activedescendant={review.fileCursor ? `review-file-${review.fileCursor}` : undefined}
           onkeydown={onFilesKeydown}
           onclick={onFilesClick}
+          oncontextmenu={onFilesContextMenu}
         >
           {#each review.files.files as reviewFile (reviewFile.path)}
             <div class="file-row">
@@ -286,7 +307,7 @@
             class="icon-btn"
             title="Comment on this file"
             aria-label="Comment on this file"
-            disabled={!reviewDiff || reviewDiff.hunks.length === 0}
+            disabled={!reviewDiff}
             onclick={() => {
               if (commentTarget) comments.start(commentTarget, null);
             }}

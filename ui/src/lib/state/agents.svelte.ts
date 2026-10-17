@@ -124,14 +124,20 @@ export class AgentsStore {
     }
     this.remember(repoId, agent.paneId);
     await workspace.activate(repoId);
-    const summary = workspace.summaries.get(repoId);
-    if (summary?.status === "ready" && summary.summary.dirty) {
-      view.focus("changes");
-      return;
+    try {
+      // Inactive repositories' sidebar summaries may predate the agent's
+      // changes. Decide from fresh status, not the cached dirty badge.
+      const status = await api.getStatus(repoId);
+      if (status.staged.length + status.unstaged.length > 0) {
+        view.focus("changes");
+        return;
+      }
+      await branches.show(repoId);
+      if (branches.current) branches.select(branches.current.name);
+      view.focus("branches");
+    } catch (error) {
+      notices.error(error);
     }
-    // The branch the agent worked on; another repository starts there anyway.
-    if (branches.repoId === repoId && branches.current) branches.select(branches.current.name);
-    view.focus("branches");
   }
 
   private apply(snapshot: AgentsSnapshot): void {

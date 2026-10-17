@@ -41,7 +41,7 @@
         class="icon-btn"
         title="Comment on this file"
         aria-label="Comment on this file"
-        disabled={!diff || diff.hunks.length === 0}
+        disabled={!diff}
         onclick={() => {
           if (target) comments.start(target, null);
         }}

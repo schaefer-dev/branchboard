@@ -31,6 +31,8 @@ export class ReviewStore {
 
   private filesToken = 0;
   private diffToken = 0;
+  /** A comment requested a target/file, possibly while the branch reloads. */
+  private requested: { target: ReviewTarget; path: string } | null = null;
 
   /** Follows the branch list: the repository and the commits of its cursor branch. */
   follow(repoId: RepoId | null, commits: BranchCommits | null): void {
@@ -43,12 +45,23 @@ export class ReviewStore {
     }
     this.commits = commits;
     // The commits reload after fetches and new commits; the files may have changed too.
-    this.target = commits ? chooseTarget(commits, this.target) : null;
+    this.target = commits ? chooseTarget(commits, this.requested?.target ?? this.target) : null;
     void this.loadFiles();
   }
 
   select(target: ReviewTarget): void {
+    this.requested = null;
     if (targetKey(target) === this.targetKey) return;
+    this.target = target;
+    void this.loadFiles();
+  }
+
+  reveal(target: ReviewTarget, path: string, branch?: string): void {
+    this.requested = { target, path };
+    // Selecting a different branch loads its commits asynchronously. Let
+    // `follow` apply the request after that load, rather than consuming it
+    // now and then resetting the file cursor when the branch arrives.
+    if (branch && this.commits?.branch !== branch) return;
     this.target = target;
     void this.loadFiles();
   }
@@ -86,6 +99,10 @@ export class ReviewStore {
       if (token !== this.filesToken) return;
       this.files = files;
       this.filesError = null;
+      if (this.requested && targetKey(this.requested.target) === targetKey(target)) {
+        this.fileCursor = this.requested.path;
+        this.requested = null;
+      }
       if (!files.files.some((file) => file.path === this.fileCursor)) {
         this.fileCursor = files.files[0]?.path ?? null;
       }

@@ -1,5 +1,5 @@
 <script lang="ts" generics="T">
-  import type { Snippet } from "svelte";
+  import { onDestroy, type Snippet } from "svelte";
   import type { Attachment } from "svelte/attachments";
   import type { HTMLAttributes } from "svelte/elements";
   import { SvelteMap } from "svelte/reactivity";
@@ -94,6 +94,8 @@
     observer?.observe(element);
     return () => observer?.unobserve(element);
   };
+
+  onDestroy(() => observer?.disconnect());
 
   /** Scrolls just enough to make row `index` fully visible. */
   export function scrollToIndex(index: number): void {

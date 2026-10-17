@@ -25,6 +25,7 @@ Built with Tauri 2, Rust, Svelte 5, and TypeScript, using your installed Git CLI
 - **Send your review to the agent.** Comment on lines, ranges or whole files in any diff,
   then send the review: Branchboard pastes your comments, with file, lines and quoted code,
   into the agent's input for you to submit. Without an agent, copy the review instead.
+  Comments are kept only for the current app session and are lost when you close the app.
 - **Agents and review in one window.** The herdr terminal runs embedded beside the diff.
   Switch between diff and terminal in the pane header; the terminal follows the selected
   repository, and navigating inside herdr selects the matching repository.

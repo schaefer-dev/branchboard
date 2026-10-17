@@ -202,6 +202,26 @@ impl HerdrLink {
     /// paste, without submitting it.
     pub async fn paste(&self, pane_id: &str, text: &str) -> Result<(), HerdrError> {
         let endpoint = self.0.endpoint.as_ref().ok_or(HerdrError::NotRunning)?;
+        // The picker may be stale by the time the user chooses. Never paste
+        // into a shell left behind by an agent, or answer an approval dialog.
+        let session = snapshot(endpoint).await?;
+        let agent = session
+            .agents
+            .iter()
+            .find(|agent| agent.pane_id == pane_id)
+            .ok_or_else(|| HerdrError::Api {
+                code: "agent_not_found".into(),
+                message: "The agent is no longer running in this pane.".into(),
+            })?;
+        if matches!(
+            agent.agent_status,
+            crate::AgentState::Blocked | crate::AgentState::Unknown
+        ) {
+            return Err(HerdrError::Api {
+                code: "agent_not_ready".into(),
+                message: "The agent is waiting for input or its state is unknown. Open its terminal before sending the review.".into(),
+            });
+        }
         connection::request::<Value>(
             endpoint,
             "pane.send_text",

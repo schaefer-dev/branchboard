@@ -46,6 +46,29 @@ describe("CommentsStore", () => {
     expect(comments.items[0]?.outdated).toBe(true);
   });
 
+  it("keeps edits pending and prevents duplicate sends while a paste is in flight", async () => {
+    let complete: () => void = () => {};
+    respond(
+      "paste_to_agent",
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    respond("focus_agent", () => null);
+    add("Original.");
+    const sending = comments.pasteTo("api", "w1:p1");
+    await comments.pasteTo("api", "w1:p1");
+    expect(invoke.mock.calls.filter(([name]) => name === "paste_to_agent")).toHaveLength(1);
+    comments.edit(comments.items[0]?.id ?? "");
+    comments.setDraftBody("Edited while sending.");
+    comments.save();
+    complete();
+    await sending;
+    expect(comments.pendingOf("api")).toHaveLength(1);
+    expect(comments.busy).toBe(false);
+  });
+
   it("pastes the pending comments, marks them sent, and pends an edited one again", async () => {
     respond("paste_to_agent", () => null);
     respond("focus_agent", () => null);

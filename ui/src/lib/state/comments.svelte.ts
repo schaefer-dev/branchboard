@@ -1,5 +1,6 @@
 import { api, type DiffLine, type RepoId } from "../api";
 import { agents } from "./agents.svelte";
+import { branches } from "./branches.svelte";
 import { itemKey } from "./changes-model";
 import { changes } from "./changes.svelte";
 import {
@@ -35,6 +36,7 @@ export function sameTarget(a: CommentTarget, b: CommentTarget): boolean {
 export class CommentsStore {
   items = $state<ReviewComment[]>([]);
   draft = $state<CommentDraft | null>(null);
+  busy = $state(false);
   /** Asks the diff showing a comment to scroll to it; `seq` makes repeats distinct. */
   revealRequest = $state<{ id: string; seq: number } | null>(null);
 
@@ -62,7 +64,12 @@ export class CommentsStore {
     const comment = this.items.find((candidate) => candidate.id === id);
     if (!comment) return;
     this.draft = {
-      target: { repoId: comment.repoId, path: comment.path, source: comment.source },
+      target: {
+        repoId: comment.repoId,
+        path: comment.path,
+        source: comment.source,
+        reviewBranch: comment.reviewBranch,
+      },
       lines: comment.lines,
       commentId: id,
       body: comment.body,
@@ -119,16 +126,19 @@ export class CommentsStore {
 
   /** Pastes the pending comments into an agent's input and shows the agent. */
   async pasteTo(repoId: RepoId, paneId: string): Promise<void> {
-    const pending = this.pendingOf(repoId);
+    if (this.busy) return;
+    const pending = this.pendingOf(repoId).map((comment) => ({ ...comment }));
     if (pending.length === 0) return;
+    this.busy = true;
     try {
       await api.pasteToAgent(paneId, formatReview(pending));
+      this.markSent(pending);
+      await agents.focus({ paneId, repoId });
     } catch (error) {
       notices.error(error);
-      return;
+    } finally {
+      this.busy = false;
     }
-    this.markSent(pending);
-    await agents.focus({ paneId, repoId });
   }
 
   /**
@@ -136,19 +146,22 @@ export class CommentsStore {
    * click or key press: the clipboard is only writable during one.
    */
   async copy(repoId: RepoId): Promise<void> {
-    const pending = this.pendingOf(repoId);
+    if (this.busy) return;
+    const pending = this.pendingOf(repoId).map((comment) => ({ ...comment }));
     if (pending.length === 0) return;
+    this.busy = true;
     try {
       await navigator.clipboard.writeText(formatReview(pending));
+      this.markSent(pending);
+      notices.show(
+        "info",
+        pending.length === 1 ? "Copied 1 comment" : `Copied ${String(pending.length)} comments`,
+      );
     } catch (error) {
       notices.error(error);
-      return;
+    } finally {
+      this.busy = false;
     }
-    this.markSent(pending);
-    notices.show(
-      "info",
-      pending.length === 1 ? "Copied 1 comment" : `Copied ${String(pending.length)} comments`,
-    );
   }
 
   /** Shows the file a comment is on, and the comment in its diff. */
@@ -159,17 +172,24 @@ export class CommentsStore {
       if (changes.items.some((item) => item.key === key)) changes.select(key);
     } else {
       view.focus("branches");
-      if (review.files?.files.some((file) => file.path === comment.path)) {
-        review.selectFile(comment.path);
-      }
+      const key = comment.source.slice("review:".length);
+      const branch =
+        comment.reviewBranch ?? (key.startsWith("branch:") ? key.slice("branch:".length) : null);
+      if (branch) branches.select(branch);
+      const target = key.startsWith("branch:")
+        ? { kind: "branch" as const, name: key.slice("branch:".length) }
+        : { kind: "commit" as const, oid: key.slice("commit:".length) };
+      review.reveal(target, comment.path, branch ?? undefined);
     }
     this.revealRequest = { id: comment.id, seq: (this.revealRequest?.seq ?? 0) + 1 };
   }
 
   private markSent(comments: readonly ReviewComment[]): void {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a local lookup, not state
-    const ids = new Set(comments.map((comment) => comment.id));
-    for (const comment of this.items) if (ids.has(comment.id)) comment.status = "sent";
+    for (const sent of comments) {
+      const current = this.items.find((comment) => comment.id === sent.id);
+      // An edit made while the paste was in flight still needs to be sent.
+      if (current && current.body === sent.body) current.status = "sent";
+    }
   }
 }
 

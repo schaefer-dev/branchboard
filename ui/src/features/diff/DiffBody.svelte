@@ -3,6 +3,7 @@
   import type { CommentTarget } from "../../lib/state/comments-model";
   import EmptyState from "../../lib/ui/EmptyState.svelte";
   import DiffView from "./DiffView.svelte";
+  import FileComments from "../comments/FileComments.svelte";
 
   interface Props {
     state: DiffState;
@@ -49,6 +50,9 @@
       <div class="view">
         <DiffView {diff} {target} />
       </div>
+    {/if}
+    {#if target && (diff.binary || diff.tooLarge || diff.hunks.length === 0)}
+      <FileComments {target} />
     {/if}
   {/if}
 </div>

@@ -2,7 +2,7 @@
 
 import type { Terminal } from "@xterm/xterm";
 
-import type { AgentsSnapshot } from "../../src/lib/api";
+import type { AgentsSnapshot, FileDiff } from "../../src/lib/api";
 
 export interface RecordedCall {
   cmd: string;
@@ -44,6 +44,8 @@ export interface FakeControl {
   setAgents(agents: AgentsSnapshot): Promise<void>;
   /** Simulates an external change to the working tree of a repository. */
   replaceStatus(repoId: string, unstagedPaths: string[]): Promise<void>;
+  /** Replaces a working-tree diff and emits a status invalidation. */
+  replaceDiff(repoId: string, key: string, diff: FileDiff): Promise<void>;
 }
 
 declare global {
